@@ -569,8 +569,8 @@
       if (e.target.id === 'tour-modal-overlay') closeTourModal();
     });
 
-    // Hook the 3D tour button to open the modal instead of navigating
-    document.querySelectorAll('a[href="3d.html"]').forEach(link => {
+    // Hook ALL 3D tour links to open the modal instead of navigating
+    document.querySelectorAll('a[href="3d.html"], a[href="/3d.html"]').forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
         openTourModal();
