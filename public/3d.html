@@ -86,11 +86,12 @@
     .panel-meta-left { flex: 1; }
     
     .panel-close { 
-      background: rgba(201,169,110,0.15); border: 1px solid rgba(201,169,110,0.5); 
-      color: #c9a96e; font-size: 0.7rem; font-family: 'Inter', sans-serif; letter-spacing: 0.05em; 
+      background: rgba(220,38,38,0.15); border: 1px solid rgba(220,38,38,0.5); 
+      color: #ef4444; font-size: 0.7rem; font-weight: 600; font-family: 'Inter', sans-serif; letter-spacing: 0.05em; 
       padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+      display: flex; align-items: center; gap: 6px;
     }
-    .panel-close:hover { background: rgba(201,169,110,0.3); color: #fff; }
+    .panel-close:hover { background: rgba(220,38,38,0.3); color: #fff; }
     
     .carousel-container {
       position: relative; flex: 1; width: 100%; background: #000; overflow: hidden;
@@ -272,7 +273,7 @@
             <span id="panel-dimensions"></span>
           </div>
         </div>
-        <button class="panel-close" id="panel-close">RESMİ KAPAT</button>
+        <button class="panel-close" id="panel-close"><span style="font-size: 0.8rem;">✕</span> RESMİ KAPAT</button>
       </div>
 
       <p class="panel-desc" id="panel-desc"></p>
