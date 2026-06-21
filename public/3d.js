@@ -286,7 +286,17 @@ function createRoom() {
   const skyDepth = Math.max(10, ROOM.depth * 0.6);
   const skyGeo = new THREE.PlaneGeometry(skyWidth, skyDepth);
   
-  const skyMat = new THREE.MeshBasicMaterial({ color: 0x88bbdd, transparent: true, opacity: 0.9 });
+  const skyTex = texLoader.load('images/starry_sky_ai.png');
+  skyTex.colorSpace = THREE.SRGBColorSpace;
+  skyTex.wrapS = THREE.RepeatWrapping;
+  skyTex.wrapT = THREE.RepeatWrapping;
+  skyTex.repeat.set(1, 1.5);
+
+  const skyMat = new THREE.MeshBasicMaterial({ 
+    map: skyTex, 
+    transparent: true, 
+    opacity: 0.95 
+  });
   const skylight = new THREE.Mesh(skyGeo, skyMat);
   skylight.rotation.x = Math.PI / 2;
   skylight.position.y = ROOM.height - 0.01;
