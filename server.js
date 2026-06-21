@@ -15,18 +15,55 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'firca-izleri-secret-key-2026';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'sergi2026';
 
-// ─── Paths ──────────────────────────────────────────
-const DATA_DIR = path.join(__dirname, 'data');
+// ─── Paths (Railway Volume Support) ─────────────────
+// Railway'de volume mount path'i varsa, veri ve yüklenen
+// görseller kalıcı volume'a yazılır.
+const VOLUME_PATH = process.env.RAILWAY_VOLUME_MOUNT_PATH || null;
+
+const DATA_DIR = VOLUME_PATH
+  ? path.join(VOLUME_PATH, 'data')
+  : path.join(__dirname, 'data');
+
+const UPLOADS_DIR = VOLUME_PATH
+  ? path.join(VOLUME_PATH, 'images')
+  : path.join(__dirname, 'public', 'images');
+
 const ARTWORKS_FILE = path.join(DATA_DIR, 'artworks.json');
-const UPLOADS_DIR = path.join(__dirname, 'public', 'images');
 
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
+// Seed: If artworks.json doesn't exist in volume, copy from bundled data
+const BUNDLED_ARTWORKS = path.join(__dirname, 'data', 'artworks.json');
+if (!fs.existsSync(ARTWORKS_FILE) && fs.existsSync(BUNDLED_ARTWORKS) && VOLUME_PATH) {
+  fs.copyFileSync(BUNDLED_ARTWORKS, ARTWORKS_FILE);
+  console.log('📋 Mevcut eser verileri volume\'a kopyalandı.');
+}
+
+// Seed: Copy bundled images to volume on first deploy
+if (VOLUME_PATH) {
+  const bundledImages = path.join(__dirname, 'public', 'images');
+  if (fs.existsSync(bundledImages)) {
+    const files = fs.readdirSync(bundledImages);
+    files.forEach((file) => {
+      const dest = path.join(UPLOADS_DIR, file);
+      if (!fs.existsSync(dest)) {
+        fs.copyFileSync(path.join(bundledImages, file), dest);
+      }
+    });
+    if (files.length > 0) console.log(`🖼️  ${files.length} görsel volume'a kopyalandı.`);
+  }
+}
+
 // ─── Middleware ─────────────────────────────────────
 app.use(express.json());
 app.use(cookieParser());
+
+// Serve uploaded/volume images at /images path (before static)
+app.use('/images', express.static(UPLOADS_DIR));
+
+// Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Multer Config ──────────────────────────────────
