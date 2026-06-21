@@ -1298,3 +1298,114 @@ body {
   justify-content: flex-end;
   padding-top: 8px;
 }
+
+/* --- Visitors Section --- */
+.stat-card--online {
+  border-color: rgba(74, 222, 128, 0.25);
+}
+.stat-card--online .stat-number {
+  color: #4ade80;
+}
+
+.visitors-section {
+  margin-top: 32px;
+}
+
+.section-badge--online {
+  background: rgba(74, 222, 128, 0.15) !important;
+  color: #4ade80 !important;
+}
+
+.visitors-online {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.visitor-online-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  font-size: 0.78rem;
+  color: #e0e0e0;
+}
+
+.visitor-online-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  animation: visDotPulse 2s ease infinite;
+}
+
+@keyframes visDotPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px #4ade80; }
+  50% { opacity: 0.4; box-shadow: none; }
+}
+
+.visitors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.visitor-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.15s;
+}
+
+.visitor-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.visitor-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #0c0b0d;
+  flex-shrink: 0;
+}
+
+.visitor-name {
+  flex: 1;
+  font-size: 0.82rem;
+  color: #e0e0e0;
+}
+
+.visitor-time {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.visitor-duration {
+  font-size: 0.65rem;
+  color: rgba(201, 169, 110, 0.5);
+  padding: 2px 8px;
+  background: rgba(201, 169, 110, 0.08);
+  border-radius: 8px;
+}
+
+.visitors-empty {
+  text-align: center;
+  padding: 40px;
+  color: rgba(255, 255, 255, 0.2);
+}
+.visitors-empty p {
+  margin-top: 12px;
+  font-size: 0.82rem;
+}

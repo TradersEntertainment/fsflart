@@ -98,6 +98,9 @@
     loginScreen.classList.add('hidden');
     dashboard.classList.remove('hidden');
     loadArtworks();
+    loadVisitors();
+    // Auto-refresh visitors every 30s
+    setInterval(loadVisitors, 30000);
   }
 
   // Login
@@ -897,5 +900,72 @@
     }
   });
   dashboardObserver.observe(dashboard, { attributes: true, attributeFilter: ['class'] });
+
+  // ─── Visitors ──────────────────────────────────────
+  async function loadVisitors() {
+    try {
+      const res = await fetch('/api/visitors');
+      if (!res.ok) return;
+      const data = await res.json();
+
+      // Update stat card
+      const statOnline = document.getElementById('stat-online');
+      if (statOnline) statOnline.textContent = data.onlineCount || 0;
+
+      // Badge
+      const badge = document.getElementById('visitors-badge');
+      if (badge) badge.textContent = data.visitors.length;
+
+      // Online players
+      const onlineEl = document.getElementById('visitors-online');
+      if (onlineEl) {
+        if (data.online.length === 0) {
+          onlineEl.innerHTML = '';
+        } else {
+          onlineEl.innerHTML = data.online.map((p) =>
+            `<span class="visitor-online-tag"><span class="visitor-online-dot"></span>${esc(p.name)}</span>`
+          ).join('');
+        }
+      }
+
+      // Visitors list
+      const listEl = document.getElementById('visitors-list');
+      const emptyEl = document.getElementById('visitors-empty');
+      if (listEl) {
+        if (data.visitors.length === 0) {
+          listEl.innerHTML = '';
+          if (emptyEl) emptyEl.classList.remove('hidden');
+        } else {
+          if (emptyEl) emptyEl.classList.add('hidden');
+          listEl.innerHTML = data.visitors.map((v) => {
+            const joinDate = new Date(v.joinedAt);
+            const timeStr = joinDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+            let durationStr = '';
+            if (v.leftAt) {
+              const dur = Math.round((new Date(v.leftAt) - joinDate) / 60000);
+              durationStr = `<span class="visitor-duration">${dur < 1 ? '<1' : dur} dk</span>`;
+            } else {
+              durationStr = `<span class="visitor-online-tag" style="padding:2px 8px;font-size:0.65rem"><span class="visitor-online-dot"></span>hala burada</span>`;
+            }
+            const initials = (v.name || 'Z').substring(0, 2).toUpperCase();
+            return `<div class="visitor-item">
+              <div class="visitor-avatar" style="background:${v.color || '#c9a96e'}">${initials}</div>
+              <span class="visitor-name">${esc(v.name)}</span>
+              <span class="visitor-time">${timeStr}</span>
+              ${durationStr}
+            </div>`;
+          }).join('');
+        }
+      }
+    } catch (err) {
+      // silently fail
+    }
+  }
+
+  function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
 
 })();

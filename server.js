@@ -33,6 +33,7 @@ const UPLOADS_DIR = VOLUME_PATH
   : path.join(__dirname, 'public', 'images');
 
 const ARTWORKS_FILE = path.join(DATA_DIR, 'artworks.json');
+const VISITORS_FILE = path.join(DATA_DIR, 'visitors.json');
 
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -426,6 +427,26 @@ app.use((err, req, res, next) => {
   next();
 });
 
+// ─── Visitors Data ───────────────────────────────
+function readVisitors() {
+  try { return JSON.parse(fs.readFileSync(VISITORS_FILE, 'utf-8')); }
+  catch { return []; }
+}
+function writeVisitors(v) {
+  fs.writeFileSync(VISITORS_FILE, JSON.stringify(v, null, 2));
+}
+
+// ─── Visitors API (admin) ───────────────────────
+app.get('/api/visitors', requireAuth, (req, res) => {
+  const visitors = readVisitors();
+  const dateFilter = req.query.date || new Date().toISOString().split('T')[0];
+  const filtered = visitors.filter((v) => v.joinedAt && v.joinedAt.startsWith(dateFilter));
+  // Also include currently online players
+  const online = [];
+  players.forEach((p) => online.push({ name: p.name, color: p.color, online: true }));
+  res.json({ date: dateFilter, visitors: filtered, online, onlineCount: players.size });
+});
+
 // ─── Socket.IO — Multiplayer Gallery ────────────────
 const galleryNsp = io.of('/gallery');
 const players = new Map();
@@ -437,6 +458,7 @@ const AVATAR_COLORS = [
 
 galleryNsp.on('connection', (socket) => {
   const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+  const joinedAt = new Date().toISOString();
   const playerData = {
     id: socket.id,
     name: 'Ziyaretçi',
@@ -454,6 +476,15 @@ galleryNsp.on('connection', (socket) => {
   socket.on('set-name', (name) => {
     playerData.name = (name || 'Ziyaretçi').substring(0, 20);
     players.set(socket.id, playerData);
+    // Log visitor
+    const visitors = readVisitors();
+    visitors.push({
+      name: playerData.name,
+      color: playerData.color,
+      joinedAt,
+      leftAt: null,
+    });
+    writeVisitors(visitors);
     // Broadcast new player joined
     socket.broadcast.emit('player-joined', playerData);
   });
@@ -475,6 +506,15 @@ galleryNsp.on('connection', (socket) => {
   socket.on('disconnect', () => {
     players.delete(socket.id);
     galleryNsp.emit('player-left', socket.id);
+    // Update visitor leftAt
+    const visitors = readVisitors();
+    for (let i = visitors.length - 1; i >= 0; i--) {
+      if (visitors[i].joinedAt === joinedAt && visitors[i].name === playerData.name && !visitors[i].leftAt) {
+        visitors[i].leftAt = new Date().toISOString();
+        break;
+      }
+    }
+    writeVisitors(visitors);
   });
 });
 
