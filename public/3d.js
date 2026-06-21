@@ -389,7 +389,7 @@ function createRoom() {
   const glassMat = new THREE.MeshBasicMaterial({
     map: mcGlassTex,
     transparent: true,
-    opacity: 0.9, // Almost fully visible lines, base is 0.15 alpha
+    opacity: 0.3, // Reduced opacity to make the Minecraft effect fainter and more transparent
     side: THREE.DoubleSide
   });
   const glassPane = new THREE.Mesh(glassGeo, glassMat);
