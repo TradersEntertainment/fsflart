@@ -111,6 +111,32 @@ function getNextId(artworks) {
   return Math.max(...artworks.map((a) => a.id)) + 1;
 }
 
+// ─── Settings Helpers ───────────────────────────────
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+const BUNDLED_SETTINGS = path.join(__dirname, 'data', 'settings.json');
+
+// Seed settings to volume on first deploy
+if (!fs.existsSync(SETTINGS_FILE) && fs.existsSync(BUNDLED_SETTINGS)) {
+  fs.copyFileSync(BUNDLED_SETTINGS, SETTINGS_FILE);
+  console.log('⚙️  Sergi ayarları volume\'a kopyalandı.');
+}
+
+function readSettings() {
+  try {
+    if (!fs.existsSync(SETTINGS_FILE) && fs.existsSync(BUNDLED_SETTINGS)) {
+      return JSON.parse(fs.readFileSync(BUNDLED_SETTINGS, 'utf-8'));
+    }
+    if (!fs.existsSync(SETTINGS_FILE)) return {};
+    return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+  } catch {
+    return {};
+  }
+}
+
+function writeSettings(data) {
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+}
+
 // ─── Auth Middleware ────────────────────────────────
 function authMiddleware(req, res, next) {
   const token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
@@ -151,6 +177,28 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/auth-check', authMiddleware, (req, res) => {
   res.json({ authenticated: true });
 });
+
+// ─── Settings API ───────────────────────────────────
+
+// Get settings (public)
+app.get('/api/settings', (req, res) => {
+  const settings = readSettings();
+  res.json(settings);
+});
+
+// Update settings (admin)
+app.put('/api/settings', authMiddleware, (req, res) => {
+  try {
+    const current = readSettings();
+    const updated = { ...current, ...req.body };
+    writeSettings(updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Ayarlar güncellenirken hata: ' + err.message });
+  }
+});
+
+// ─── Artworks API ───────────────────────────────────
 
 // Get all artworks (public)
 app.get('/api/artworks', (req, res) => {

@@ -957,3 +957,62 @@ body {
   }
   .stat-number { font-size: 1.3rem; }
 }
+
+/* --- Settings Panel --- */
+.settings-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 28px;
+  margin-bottom: 24px;
+  animation: fadeInUp 0.3s var(--ease);
+}
+
+.settings-panel.hidden {
+  display: none;
+}
+
+.settings-panel-header h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.settings-panel-header p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.settings-grid textarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.88rem;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.settings-grid textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.settings-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}

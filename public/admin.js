@@ -619,4 +619,71 @@
     if (!str) return '';
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
+
+  // ── Settings Management ──────────────────────────────
+  const settingsPanel = $('#settings-panel');
+  const toggleSettingsBtn = $('#toggle-settings-btn');
+  const settingsForm = $('#settings-form');
+
+  const settingsFields = [
+    'dateRange', 'weekdayHours', 'weekendHours',
+    'location', 'locationDetail',
+    'contactEmail', 'contactPhone', 'contactDepartment'
+  ];
+
+  if (toggleSettingsBtn && settingsPanel) {
+    toggleSettingsBtn.addEventListener('click', () => {
+      settingsPanel.classList.toggle('hidden');
+    });
+  }
+
+  async function loadSettings() {
+    try {
+      const res = await fetch('/api/settings');
+      if (!res.ok) return;
+      const settings = await res.json();
+      settingsFields.forEach((key) => {
+        const el = $(`#s-${key}`);
+        if (el && settings[key] !== undefined) {
+          el.value = settings[key];
+        }
+      });
+    } catch (err) {
+      console.error('Settings load error:', err);
+    }
+  }
+
+  if (settingsForm) {
+    settingsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {};
+      settingsFields.forEach((key) => {
+        const el = $(`#s-${key}`);
+        if (el) data[key] = el.value;
+      });
+
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Kaydetme hatası');
+        showToast('Sergi ayarları güncellendi!', 'success');
+      } catch (err) {
+        showToast('Ayarlar kaydedilemedi: ' + err.message, 'error');
+      }
+    });
+  }
+
+  // Load settings when dashboard is shown
+  const origShowDashboard = window.__showDashboardHook;
+  const dashboardObserver = new MutationObserver(() => {
+    if (!dashboard.classList.contains('hidden')) {
+      loadSettings();
+      dashboardObserver.disconnect();
+    }
+  });
+  dashboardObserver.observe(dashboard, { attributes: true, attributeFilter: ['class'] });
+
 })();

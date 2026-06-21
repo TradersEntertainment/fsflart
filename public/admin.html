@@ -118,6 +118,12 @@
         </div>
       </div>
       <div class="toolbar-right">
+        <button class="btn btn-ghost btn-sm" id="toggle-settings-btn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Sergi Ayarları
+        </button>
         <button class="btn btn-primary" id="add-artwork-btn">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"/>
@@ -126,6 +132,56 @@
           Yeni Eser Ekle
         </button>
       </div>
+    </div>
+
+    <!-- Settings Panel (collapsible) -->
+    <div class="settings-panel hidden" id="settings-panel">
+      <div class="settings-panel-header">
+        <h2>Sergi Ayarları</h2>
+        <p>Bu bilgiler ana sayfada ve sergi bilgileri bölümünde görünür.</p>
+      </div>
+      <form id="settings-form" class="settings-grid">
+        <div class="input-group">
+          <label for="s-dateRange">Tarih Aralığı</label>
+          <input type="text" id="s-dateRange" placeholder="15 — 22 Haziran 2026" />
+        </div>
+        <div class="input-group">
+          <label for="s-weekdayHours">Hafta İçi Saatleri</label>
+          <input type="text" id="s-weekdayHours" placeholder="Hafta içi 09:00 – 17:00" />
+        </div>
+        <div class="input-group">
+          <label for="s-weekendHours">Hafta Sonu Saatleri</label>
+          <input type="text" id="s-weekendHours" placeholder="Hafta sonu 10:00 – 16:00" />
+        </div>
+        <div class="input-group">
+          <label for="s-location">Konum (Kısa)</label>
+          <input type="text" id="s-location" placeholder="Okul Sergi Salonu" />
+        </div>
+        <div class="input-group">
+          <label for="s-locationDetail">Konum (Detaylı)</label>
+          <textarea id="s-locationDetail" rows="3" placeholder="Fuat Sezgin Fen Lisesi&#10;Sergi Salonu, B Blok Zemin Kat&#10;Ücretsiz giriş"></textarea>
+        </div>
+        <div class="input-group">
+          <label for="s-contactEmail">E-posta</label>
+          <input type="email" id="s-contactEmail" placeholder="gorsel.sanatlar@okul.meb.gov.tr" />
+        </div>
+        <div class="input-group">
+          <label for="s-contactPhone">Telefon</label>
+          <input type="text" id="s-contactPhone" placeholder="(0312) 555 00 00" />
+        </div>
+        <div class="input-group">
+          <label for="s-contactDepartment">Bölüm</label>
+          <input type="text" id="s-contactDepartment" placeholder="Görsel Sanatlar Zümresi" />
+        </div>
+        <div class="settings-actions">
+          <button type="submit" class="btn btn-primary" id="save-settings-btn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Ayarları Kaydet
+          </button>
+        </div>
+      </form>
     </div>
 
     <!-- Artwork Grid -->

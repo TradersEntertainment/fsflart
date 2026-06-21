@@ -74,15 +74,49 @@ async function loadArtworks() {
     artworks = await res.json();
     filteredArtworks = [...artworks];
     renderGallery(artworks);
+
+    // Auto-update artwork count in hero
+    const countEl = document.getElementById('hero-artwork-count');
+    if (countEl) countEl.textContent = `${artworks.length} Eser`;
   } catch (err) {
     console.error('Eserler yüklenirken hata:', err);
-    // Fallback: render empty
     renderGallery([]);
+  }
+}
+
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    const s = await res.json();
+
+    // Hero meta
+    const heroDate = document.getElementById('hero-date');
+    const heroLocation = document.getElementById('hero-location');
+    if (heroDate) heroDate.textContent = s.dateRange || '';
+    if (heroLocation) heroLocation.textContent = s.location || '';
+
+    // Info cards
+    const infoDatetime = document.getElementById('info-datetime');
+    const infoLocation = document.getElementById('info-location');
+    const infoContact = document.getElementById('info-contact');
+
+    if (infoDatetime) {
+      infoDatetime.innerHTML = `${s.dateRange || ''}<br>${s.weekdayHours || ''}<br>${s.weekendHours || ''}`;
+    }
+    if (infoLocation) {
+      infoLocation.innerHTML = (s.locationDetail || '').replace(/\n/g, '<br>');
+    }
+    if (infoContact) {
+      infoContact.innerHTML = `${s.contactEmail || ''}<br>Tel: ${s.contactPhone || ''}<br>${s.contactDepartment || ''}`;
+    }
+  } catch (err) {
+    console.error('Ayarlar yüklenirken hata:', err);
   }
 }
 
 // Initial load
 loadArtworks();
+loadSettings();
 
 // ─── Filtering ──────────────────────────────────────
 filterBtns.forEach((btn) => {
