@@ -328,6 +328,9 @@ function preloadImages() {
     'images/famous_greatwave.png',
     'images/famous_girlpearl.png',
     'images/famous_impressionsunrise.png',
+    'images/famous_monalisa.png',
+    'images/famous_scream.png',
+    'images/famous_persistence.png',
   ];
   famousPaintings.forEach((src) => {
     const img = new Image();
@@ -352,4 +355,108 @@ if (quoteRotator) {
 
   // Rotate every 5 seconds
   setInterval(rotateQuote, 5000);
+}
+
+// ─── Submission Form ────────────────────────────────
+const subForm = document.getElementById('submission-form');
+const subUploadZone = document.getElementById('sub-upload-zone');
+const subImageInput = document.getElementById('sub-image');
+const subPreview = document.getElementById('sub-preview');
+const subPreviewImg = document.getElementById('sub-preview-img');
+const subPreviewRemove = document.getElementById('sub-preview-remove');
+const subSuccess = document.getElementById('sub-success');
+const subSubmitBtn = document.getElementById('sub-submit-btn');
+
+const TECHNIQUE_MAP = {
+  yagliboya: 'Yağlı Boya',
+  suluboya: 'Suluboya',
+  akrilik: 'Akrilik',
+  karakalem: 'Karakalem',
+  murekkep: 'Mürekkep',
+};
+
+if (subForm && subUploadZone) {
+  // Click to upload
+  subUploadZone.addEventListener('click', () => subImageInput.click());
+
+  // Drag and drop
+  subUploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    subUploadZone.classList.add('dragover');
+  });
+  subUploadZone.addEventListener('dragleave', () => {
+    subUploadZone.classList.remove('dragover');
+  });
+  subUploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    subUploadZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+      subImageInput.files = e.dataTransfer.files;
+      showPreview(e.dataTransfer.files[0]);
+    }
+  });
+
+  // File input change
+  subImageInput.addEventListener('change', () => {
+    if (subImageInput.files.length) {
+      showPreview(subImageInput.files[0]);
+    }
+  });
+
+  function showPreview(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      subPreviewImg.src = e.target.result;
+      subPreview.classList.remove('hidden');
+      subUploadZone.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Remove preview
+  if (subPreviewRemove) {
+    subPreviewRemove.addEventListener('click', () => {
+      subPreview.classList.add('hidden');
+      subUploadZone.style.display = '';
+      subImageInput.value = '';
+    });
+  }
+
+  // Submit form
+  subForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    subSubmitBtn.disabled = true;
+    subSubmitBtn.querySelector('span').textContent = 'Gönderiliyor…';
+
+    const technique = document.getElementById('sub-technique').value;
+    const formData = new FormData();
+    formData.append('artist', document.getElementById('sub-artist').value);
+    formData.append('grade', document.getElementById('sub-grade').value);
+    formData.append('title', document.getElementById('sub-title').value);
+    formData.append('technique', technique);
+    formData.append('techniqueLabel', TECHNIQUE_MAP[technique] || technique);
+    formData.append('dimensions', document.getElementById('sub-dimensions').value);
+    formData.append('description', document.getElementById('sub-description').value);
+    if (subImageInput.files.length) {
+      formData.append('image', subImageInput.files[0]);
+    }
+
+    try {
+      const res = await fetch('/api/submissions', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Sunucu hatası');
+
+      // Show success
+      subForm.querySelectorAll('.form-row, .form-group, .btn-submit').forEach((el) => {
+        el.style.display = 'none';
+      });
+      subSuccess.classList.remove('hidden');
+    } catch (err) {
+      alert('Başvuru gönderilemedi: ' + err.message);
+      subSubmitBtn.disabled = false;
+      subSubmitBtn.querySelector('span').textContent = 'Başvuruyu Gönder';
+    }
+  });
 }

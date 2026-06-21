@@ -1175,6 +1175,212 @@ ul, ol {
 }
 
 /* ===================================================
+   SUBMISSION FORM
+   =================================================== */
+.submission-form-wrapper {
+  max-width: 720px;
+  margin: 0 auto;
+  background: rgba(20, 19, 22, 0.6);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: var(--space-2xl);
+  backdrop-filter: blur(8px);
+}
+
+.submission-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.submission-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.submission-form label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.submission-form input,
+.submission-form select,
+.submission-form textarea {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(30, 29, 33, 0.8);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.submission-form input:focus,
+.submission-form select:focus,
+.submission-form textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.submission-form select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+.submission-form textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.submission-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-2xl);
+  border: 2px dashed var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  color: var(--color-text-muted);
+}
+
+.submission-upload-zone:hover,
+.submission-upload-zone.dragover {
+  border-color: var(--color-accent);
+  background: rgba(201, 169, 110, 0.04);
+  color: var(--color-accent);
+}
+
+.submission-upload-zone p {
+  font-size: 0.88rem;
+}
+
+.upload-browse {
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.upload-hint {
+  font-size: 0.72rem;
+  opacity: 0.5;
+}
+
+.submission-preview {
+  position: relative;
+  margin-top: var(--space-md);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.submission-preview.hidden {
+  display: none;
+}
+
+.submission-preview img {
+  width: 100%;
+  max-height: 300px;
+  object-fit: cover;
+}
+
+.preview-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--duration-fast);
+}
+
+.preview-remove:hover {
+  background: rgba(200, 50, 50, 0.8);
+}
+
+.btn-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-bg-primary);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  margin-top: var(--space-lg);
+}
+
+.btn-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(201, 169, 110, 0.25);
+}
+
+.btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.submission-success {
+  text-align: center;
+  padding: var(--space-2xl);
+  color: var(--color-accent);
+}
+
+.submission-success.hidden {
+  display: none;
+}
+
+.submission-success h3 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin: var(--space-md) 0 var(--space-sm);
+  color: var(--color-text-primary);
+}
+
+.submission-success p {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .submission-form .form-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+/* ===================================================
    EXHIBITION INFO SECTION
    =================================================== */
 .info-cards {

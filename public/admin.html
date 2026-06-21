@@ -104,6 +104,10 @@
         <span class="stat-number" id="stat-grades">0</span>
         <span class="stat-label">Farklı Sınıf</span>
       </div>
+      <div class="stat-card stat-card--pending">
+        <span class="stat-number" id="stat-submissions">0</span>
+        <span class="stat-label">Bekleyen Başvuru</span>
+      </div>
     </div>
 
     <!-- Toolbar -->
@@ -187,6 +191,34 @@
     <!-- Artwork Grid -->
     <div class="artwork-grid" id="artwork-grid">
       <!-- Cards rendered by JS -->
+    </div>
+
+    <!-- ===== SUBMISSIONS SECTION ===== -->
+    <div class="submissions-section" id="submissions-section">
+      <div class="section-header">
+        <h2 class="section-title">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+          Başvurular
+        </h2>
+        <span class="section-badge" id="submissions-badge">0</span>
+      </div>
+      <div class="submission-grid" id="submission-grid">
+        <!-- Submission cards rendered by JS -->
+      </div>
+      <div class="submissions-empty hidden" id="submissions-empty">
+        <svg viewBox="0 0 64 64" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1">
+          <rect x="12" y="8" width="40" height="48" rx="3"/>
+          <line x1="22" y1="22" x2="42" y2="22"/>
+          <line x1="22" y1="30" x2="42" y2="30"/>
+          <line x1="22" y1="38" x2="34" y2="38"/>
+        </svg>
+        <p>Bekleyen başvuru bulunmuyor.</p>
+      </div>
     </div>
 
     <!-- Empty State -->

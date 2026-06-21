@@ -669,18 +669,230 @@
           body: JSON.stringify(data),
         });
         if (!res.ok) throw new Error('Kaydetme hatası');
-        showToast('Sergi ayarları güncellendi!', 'success');
+        toast('Sergi ayarları güncellendi!', 'success');
       } catch (err) {
-        showToast('Ayarlar kaydedilemedi: ' + err.message, 'error');
+        toast('Ayarlar kaydedilemedi: ' + err.message, 'error');
       }
     });
   }
 
-  // Load settings when dashboard is shown
-  const origShowDashboard = window.__showDashboardHook;
+  // ============================================================
+  //  SUBMISSIONS MANAGEMENT
+  // ============================================================
+  let submissions = [];
+
+  const submissionGrid    = $('#submission-grid');
+  const submissionsEmpty  = $('#submissions-empty');
+  const statSubmissions   = $('#stat-submissions');
+  const submissionsBadge  = $('#submissions-badge');
+
+  async function loadSubmissions() {
+    if (!submissionGrid) return;
+    submissionGrid.innerHTML = '';
+    if (submissionsEmpty) submissionsEmpty.classList.add('hidden');
+
+    try {
+      const res = await fetch('/api/submissions', { credentials: 'include' });
+      if (res.status === 401) {
+        showLogin();
+        return;
+      }
+      if (!res.ok) throw new Error('Başvurular yüklenemedi.');
+
+      submissions = await res.json();
+
+      // Handle both array and object-with-array responses
+      if (!Array.isArray(submissions)) {
+        submissions = submissions.submissions || submissions.data || [];
+      }
+
+      renderSubmissions(submissions);
+      updateSubmissionStats();
+    } catch (err) {
+      console.error('Submissions load error:', err);
+    }
+  }
+
+  function renderSubmissions(list) {
+    if (!submissionGrid) return;
+    submissionGrid.innerHTML = '';
+
+    if (list.length === 0) {
+      if (submissionsEmpty) submissionsEmpty.classList.remove('hidden');
+      return;
+    }
+    if (submissionsEmpty) submissionsEmpty.classList.add('hidden');
+
+    list.forEach((sub, idx) => {
+      const card = document.createElement('div');
+      card.className = 'submission-card';
+      card.style.animationDelay = `${idx * 0.05}s`;
+      card.dataset.id = sub.id || sub._id;
+
+      const technique = sub.techniqueLabel || TECHNIQUE_LABELS[sub.technique] || sub.technique || '—';
+      const imgSrc = sub.image || sub.imageUrl || '/uploads/' + (sub.imagePath || '');
+      const dateStr = sub.submittedAt ? formatDate(sub.submittedAt) : '—';
+
+      card.innerHTML = `
+        <div class="card-image-wrapper">
+          <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(sub.title)}" loading="lazy" />
+          <span class="card-technique-badge">${escapeHtml(technique)}</span>
+          <span class="submission-status-badge">Beklemede</span>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">${escapeHtml(sub.title)}</h3>
+          <p class="card-artist">${escapeHtml(sub.artist)}</p>
+          <div class="card-meta">
+            ${sub.grade ? `
+            <span class="card-meta-item">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+              </svg>
+              ${escapeHtml(sub.grade)}
+            </span>` : ''}
+            ${sub.dimensions ? `
+            <span class="card-meta-item">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+              </svg>
+              ${escapeHtml(sub.dimensions)}
+            </span>` : ''}
+          </div>
+          <div class="card-date">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            ${escapeHtml(dateStr)}
+          </div>
+          ${sub.description ? `<p class="card-description">${escapeHtml(sub.description)}</p>` : ''}
+          <div class="submission-actions">
+            <button class="btn-approve approve-btn" data-id="${sub.id || sub._id}" title="Onayla">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Onayla
+            </button>
+            <button class="btn-reject reject-btn" data-id="${sub.id || sub._id}" data-title="${escapeAttr(sub.title)}" title="Reddet">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              Reddet
+            </button>
+          </div>
+        </div>
+      `;
+
+      submissionGrid.appendChild(card);
+    });
+
+    // Attach approve listeners
+    submissionGrid.querySelectorAll('.approve-btn').forEach(btn => {
+      btn.addEventListener('click', () => approveSubmission(btn.dataset.id, btn));
+    });
+    // Attach reject listeners
+    submissionGrid.querySelectorAll('.reject-btn').forEach(btn => {
+      btn.addEventListener('click', () => rejectSubmission(btn.dataset.id, btn.dataset.title, btn));
+    });
+  }
+
+  function updateSubmissionStats() {
+    const count = submissions.length;
+    if (statSubmissions) statSubmissions.textContent = count;
+    if (submissionsBadge) submissionsBadge.textContent = count;
+  }
+
+  function formatDate(dateStr) {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('tr-TR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return dateStr;
+    }
+  }
+
+  async function approveSubmission(id, btn) {
+    if (!id) return;
+    btn.disabled = true;
+    const card = btn.closest('.submission-card');
+    const rejectBtn = card ? card.querySelector('.reject-btn') : null;
+    if (rejectBtn) rejectBtn.disabled = true;
+
+    try {
+      const res = await fetch(`/api/submissions/${id}/approve`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (res.status === 401) {
+        showLogin();
+        toast('Oturum süresi doldu. Lütfen tekrar giriş yapın.', 'error');
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || 'Onaylama işlemi başarısız oldu.');
+      }
+
+      toast('Başvuru onaylandı ve sergiye eklendi.', 'success');
+      await Promise.all([loadArtworks(), loadSubmissions()]);
+    } catch (err) {
+      toast(err.message || 'Bir hata oluştu.', 'error');
+      btn.disabled = false;
+      if (rejectBtn) rejectBtn.disabled = false;
+    }
+  }
+
+  async function rejectSubmission(id, title, btn) {
+    if (!id) return;
+    const confirmed = confirm(`"${title || 'Bu başvuru'}" reddedilecek. Emin misiniz?`);
+    if (!confirmed) return;
+
+    btn.disabled = true;
+    const card = btn.closest('.submission-card');
+    const approveBtn = card ? card.querySelector('.approve-btn') : null;
+    if (approveBtn) approveBtn.disabled = true;
+
+    try {
+      const res = await fetch(`/api/submissions/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (res.status === 401) {
+        showLogin();
+        toast('Oturum süresi doldu. Lütfen tekrar giriş yapın.', 'error');
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || 'Reddetme işlemi başarısız oldu.');
+      }
+
+      toast('Başvuru reddedildi.', 'success');
+      await loadSubmissions();
+    } catch (err) {
+      toast(err.message || 'Bir hata oluştu.', 'error');
+      btn.disabled = false;
+      if (approveBtn) approveBtn.disabled = false;
+    }
+  }
+
+  // Load settings & submissions when dashboard is shown
   const dashboardObserver = new MutationObserver(() => {
     if (!dashboard.classList.contains('hidden')) {
       loadSettings();
+      loadSubmissions();
       dashboardObserver.disconnect();
     }
   });

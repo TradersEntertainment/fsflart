@@ -26,6 +26,7 @@
       <nav class="header-nav" id="header-nav">
         <a href="#hakkinda">Hakkında</a>
         <a href="#galeri">Galeri</a>
+        <a href="#basvuru">Başvur</a>
         <a href="#sergi-bilgileri">Sergi Bilgileri</a>
         <a href="#iletisim">İletişim</a>
       </nav>
@@ -261,6 +262,97 @@
       <!-- Gallery Grid -->
       <div class="gallery-grid" id="gallery-grid">
         <!-- Cards are injected by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SUBMISSION FORM SECTION
+       ═══════════════════════════════════════════ -->
+  <section class="section" id="basvuru">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-overline reveal">Katılım</div>
+        <h2 class="section-title reveal reveal-delay-1">Sergiye Başvur</h2>
+        <p class="section-description reveal reveal-delay-2">
+          Eserini sergimizde görmek ister misin? Aşağıdaki formu doldurarak başvurunu ilet.
+          Başvurun onaylandığında eserin galerimize eklenecektir.
+        </p>
+      </div>
+
+      <div class="submission-form-wrapper reveal">
+        <form id="submission-form" class="submission-form" enctype="multipart/form-data">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="sub-artist">Ad Soyad</label>
+              <input type="text" id="sub-artist" name="artist" placeholder="Adınızı ve soyadınızı girin" required />
+            </div>
+            <div class="form-group">
+              <label for="sub-grade">Sınıf</label>
+              <input type="text" id="sub-grade" name="grade" placeholder="Ör: 11-A" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="sub-title">Eser Adı</label>
+              <input type="text" id="sub-title" name="title" placeholder="Eserinizin başlığı" required />
+            </div>
+            <div class="form-group">
+              <label for="sub-technique">Teknik</label>
+              <select id="sub-technique" name="technique" required>
+                <option value="yagliboya">Yağlı Boya</option>
+                <option value="suluboya">Suluboya</option>
+                <option value="akrilik">Akrilik</option>
+                <option value="karakalem">Karakalem</option>
+                <option value="murekkep">Mürekkep</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="sub-dimensions">Boyutlar</label>
+              <input type="text" id="sub-dimensions" name="dimensions" placeholder="Ör: 60 × 80 cm" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="sub-description">Eser Hakkında</label>
+            <textarea id="sub-description" name="description" rows="4" placeholder="Eserinizi kısaca anlatın…"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Eser Görseli</label>
+            <div class="submission-upload-zone" id="sub-upload-zone">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <p>Görseli sürükleyin veya <span class="upload-browse">dosya seçin</span></p>
+              <span class="upload-hint">JPG, PNG veya WebP · Maks. 10MB</span>
+              <input type="file" id="sub-image" name="image" accept="image/*" required hidden />
+            </div>
+            <div class="submission-preview hidden" id="sub-preview">
+              <img id="sub-preview-img" alt="Önizleme" />
+              <button type="button" class="preview-remove" id="sub-preview-remove">✕</button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-submit" id="sub-submit-btn">
+            <span>Başvuruyu Gönder</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+
+          <div class="submission-success hidden" id="sub-success">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <h3>Başvurunuz Alındı!</h3>
+            <p>Eseriniz incelenmek üzere gönderildi. Onaylandığında galerimize eklenecektir.</p>
+          </div>
+        </form>
       </div>
     </div>
   </section>

@@ -137,6 +137,27 @@ function writeSettings(data) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
 
+// ─── Submissions Helpers ────────────────────────────
+const SUBMISSIONS_FILE = path.join(DATA_DIR, 'submissions.json');
+
+function readSubmissions() {
+  try {
+    if (!fs.existsSync(SUBMISSIONS_FILE)) return [];
+    return JSON.parse(fs.readFileSync(SUBMISSIONS_FILE, 'utf-8'));
+  } catch {
+    return [];
+  }
+}
+
+function writeSubmissions(data) {
+  fs.writeFileSync(SUBMISSIONS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+function getNextSubmissionId(subs) {
+  if (subs.length === 0) return 1;
+  return Math.max(...subs.map((s) => s.id)) + 1;
+}
+
 // ─── Auth Middleware ────────────────────────────────
 function authMiddleware(req, res, next) {
   const token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
@@ -286,6 +307,90 @@ app.delete('/api/artworks/:id', authMiddleware, (req, res) => {
     res.json({ success: true, deleted: removed });
   } catch (err) {
     res.status(500).json({ error: 'Silme hatası: ' + err.message });
+  }
+});
+
+// ─── Submissions API ────────────────────────────────
+
+// Submit artwork application (public — no auth required)
+app.post('/api/submissions', upload.single('image'), (req, res) => {
+  try {
+    const subs = readSubmissions();
+    const newSub = {
+      id: getNextSubmissionId(subs),
+      title: req.body.title || 'İsimsiz Eser',
+      artist: req.body.artist || 'Bilinmeyen',
+      grade: req.body.grade || '',
+      technique: req.body.technique || 'yagliboya',
+      techniqueLabel: req.body.techniqueLabel || 'Yağlı Boya',
+      dimensions: req.body.dimensions || '',
+      description: req.body.description || '',
+      image: req.file ? `images/${req.file.filename}` : '',
+      submittedAt: new Date().toISOString(),
+      status: 'pending',
+    };
+    subs.push(newSub);
+    writeSubmissions(subs);
+    res.status(201).json({ success: true, submission: newSub });
+  } catch (err) {
+    res.status(500).json({ error: 'Başvuru gönderilirken hata: ' + err.message });
+  }
+});
+
+// Get all submissions (admin)
+app.get('/api/submissions', authMiddleware, (req, res) => {
+  const subs = readSubmissions();
+  res.json(subs);
+});
+
+// Delete / reject submission (admin)
+app.delete('/api/submissions/:id', authMiddleware, (req, res) => {
+  try {
+    let subs = readSubmissions();
+    const index = subs.findIndex((s) => s.id === parseInt(req.params.id));
+    if (index === -1) return res.status(404).json({ error: 'Başvuru bulunamadı' });
+
+    const removed = subs.splice(index, 1)[0];
+    writeSubmissions(subs);
+    res.json({ success: true, deleted: removed });
+  } catch (err) {
+    res.status(500).json({ error: 'Silme hatası: ' + err.message });
+  }
+});
+
+// Approve submission → add to artworks gallery (admin)
+app.post('/api/submissions/:id/approve', authMiddleware, (req, res) => {
+  try {
+    let subs = readSubmissions();
+    const index = subs.findIndex((s) => s.id === parseInt(req.params.id));
+    if (index === -1) return res.status(404).json({ error: 'Başvuru bulunamadı' });
+
+    const sub = subs[index];
+    const artworks = readArtworks();
+
+    // Move to artworks
+    const newArtwork = {
+      id: getNextId(artworks),
+      title: sub.title,
+      artist: sub.artist,
+      grade: sub.grade,
+      technique: sub.technique,
+      techniqueLabel: sub.techniqueLabel,
+      dimensions: sub.dimensions,
+      year: new Date().getFullYear().toString(),
+      image: sub.image,
+      description: sub.description,
+    };
+    artworks.push(newArtwork);
+    writeArtworks(artworks);
+
+    // Remove from submissions
+    subs.splice(index, 1);
+    writeSubmissions(subs);
+
+    res.json({ success: true, artwork: newArtwork });
+  } catch (err) {
+    res.status(500).json({ error: 'Onaylama hatası: ' + err.message });
   }
 });
 
