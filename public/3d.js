@@ -504,7 +504,10 @@ function setupEvents() {
 
 // ─── Desktop Events ────────────────────────────────
 function setupDesktopEvents() {
-  startOverlay.addEventListener('click', () => controls.lock());
+  startOverlay.addEventListener('click', (e) => {
+    if (e.target.tagName.toLowerCase() === 'input') return;
+    controls.lock();
+  });
 
   controls.addEventListener('lock', () => {
     startOverlay.classList.add('hidden');
@@ -553,6 +556,7 @@ function setupDesktopEvents() {
 function setupMobileEvents() {
   // Start touch
   startOverlay.addEventListener('touchstart', (e) => {
+    if (e.target.tagName.toLowerCase() === 'input') return;
     e.preventDefault();
     startOverlay.classList.add('hidden');
     mobileActive = true;
@@ -1060,8 +1064,14 @@ const _origSetupMobile = typeof setupMobileEvents === 'function' ? setupMobileEv
 // Hook into start overlay click to send name
 const startOvl = document.getElementById('start-overlay');
 if (startOvl) {
-  startOvl.addEventListener('click', () => sendName(), true);
-  startOvl.addEventListener('touchstart', () => sendName(), true);
+  startOvl.addEventListener('click', (e) => {
+    if (e.target.tagName.toLowerCase() === 'input') return;
+    sendName();
+  }, true);
+  startOvl.addEventListener('touchstart', (e) => {
+    if (e.target.tagName.toLowerCase() === 'input') return;
+    sendName();
+  }, true);
 }
 
 // Hook into animate loop — override the existing animate
