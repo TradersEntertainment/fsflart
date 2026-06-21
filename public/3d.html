@@ -140,11 +140,6 @@
       .start-title { font-size: 1.3rem; }
       .start-keys { display: none; }
       #hud { display: none !important; }
-      .panel-close {
-        top: 50%;
-        transform: translateY(-50%);
-        background: rgba(12,11,13,0.85); /* A bit darker to stand out over images */
-      }
     }
 
     /* Virtual Joystick */
@@ -252,8 +247,6 @@
 
   <!-- Artwork Info Panel -->
   <div id="artwork-panel">
-    <button class="panel-close" id="panel-close">✕</button>
-    
     <div class="carousel-container" id="carousel-container">
       <div class="carousel-hint" id="carousel-hint">Dokunarak hikayeyi gizle/göster</div>
       <div class="carousel-track" id="carousel-track">
@@ -265,6 +258,7 @@
     </div>
 
     <div class="panel-content" id="panel-content">
+      <button class="panel-close" id="panel-close">✕</button>
       <div class="panel-overline" id="panel-overline"></div>
       <h2 class="panel-title" id="panel-title"></h2>
       <p class="panel-artist" id="panel-artist"></p>
