@@ -255,21 +255,12 @@ function createRoom() {
   ceil.position.y = ROOM.height;
   scene.add(ceil);
 
-  // Architectural Skylight (Van Gogh Starry Night)
+  // Architectural Skylight (Fake window)
   const skyWidth = Math.min(6, ROOM.width * 0.4);
   const skyDepth = Math.max(10, ROOM.depth * 0.6);
   const skyGeo = new THREE.PlaneGeometry(skyWidth, skyDepth);
   
-  const skyTex = texLoader.load('images/starry_sky_texture.jpg');
-  skyTex.wrapS = THREE.RepeatWrapping;
-  skyTex.wrapT = THREE.RepeatWrapping;
-  skyTex.repeat.set(1, 1); // Single large expanse for a realistic open sky feel
-
-  const skyMat = new THREE.MeshBasicMaterial({ 
-    map: skyTex, 
-    transparent: true, 
-    opacity: 0.9 
-  });
+  const skyMat = new THREE.MeshBasicMaterial({ color: 0x88bbdd, transparent: true, opacity: 0.9 });
   const skylight = new THREE.Mesh(skyGeo, skyMat);
   skylight.rotation.x = Math.PI / 2;
   skylight.position.y = ROOM.height - 0.01;
