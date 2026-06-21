@@ -345,6 +345,35 @@ function createRoom() {
   ceil4.position.set(ROOM.width/2 - ceilXLen/2, ROOM.height, 0);
   scene.add(ceil4);
 
+  // ─── Skylight Glass & Grid ───
+  const glassGeo = new THREE.PlaneGeometry(holeWidth, holeDepth);
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x88aaff,
+    metalness: 0.9,
+    roughness: 0.1,
+    transparent: true,
+    opacity: 0.15,
+    side: THREE.DoubleSide
+  });
+  const glassPane = new THREE.Mesh(glassGeo, glassMat);
+  glassPane.rotation.x = Math.PI / 2;
+  glassPane.position.y = ROOM.height;
+  scene.add(glassPane);
+
+  const gridMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+  const gridThickness = 0.08;
+  const gridDepth = 0.15;
+  
+  // Crossbar X
+  const barX = new THREE.Mesh(new THREE.BoxGeometry(holeWidth, gridDepth, gridThickness), gridMat);
+  barX.position.set(0, ROOM.height, 0);
+  scene.add(barX);
+  
+  // Crossbar Z
+  const barZ = new THREE.Mesh(new THREE.BoxGeometry(gridThickness, gridDepth, holeDepth), gridMat);
+  barZ.position.set(0, ROOM.height, 0);
+  scene.add(barZ);
+
   // Massive Starry Night Ceiling (Hanging above the hole)
   const skyWidth = ROOM.width * 1.5; // Huge sky plane behind the ceiling
   const skyDepth = ROOM.depth * 1.5;
