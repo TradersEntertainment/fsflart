@@ -255,11 +255,21 @@ function createRoom() {
   ceil.position.y = ROOM.height;
   scene.add(ceil);
 
-  // Architectural Skylight (Fake window)
+  // Architectural Skylight (Van Gogh Starry Night)
   const skyWidth = Math.min(6, ROOM.width * 0.4);
   const skyDepth = Math.max(10, ROOM.depth * 0.6);
   const skyGeo = new THREE.PlaneGeometry(skyWidth, skyDepth);
-  const skyMat = new THREE.MeshBasicMaterial({ color: 0x88bbdd, transparent: true, opacity: 0.9 });
+  
+  const skyTex = texLoader.load('images/famous_starrynight.png');
+  skyTex.wrapS = THREE.RepeatWrapping;
+  skyTex.wrapT = THREE.RepeatWrapping;
+  skyTex.repeat.set(2, 4); // Tile slightly to make it look like a continuous sky
+
+  const skyMat = new THREE.MeshBasicMaterial({ 
+    map: skyTex, 
+    transparent: true, 
+    opacity: 0.9 
+  });
   const skylight = new THREE.Mesh(skyGeo, skyMat);
   skylight.rotation.x = Math.PI / 2;
   skylight.position.y = ROOM.height - 0.01;
@@ -310,7 +320,7 @@ function createRoom() {
 // ─── Particles ─────────────────────────────────────
 let dustParticles;
 function createDust() {
-  const particleCount = 300; // Light amount for performance
+  const particleCount = 100; // Even lighter amount for subtle effect
   const geo = new THREE.BufferGeometry();
   const pos = new Float32Array(particleCount * 3);
   for(let i=0; i<particleCount; i++) {
