@@ -6,15 +6,15 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 // ─── Config ────────────────────────────────────────
-const ROOM = { width: 28, height: 5, depth: 40 }; // will be recalculated
+const ROOM = { width: 28, height: 5, depth: 40 };
 const WALL_COLOR = 0xf5f0e8;
 const FLOOR_COLOR = 0x3d2b1f;
 const CEILING_COLOR = 0xe8e0d0;
 const FRAME_COLOR = 0x2c1a0a;
 const PAINTING_HEIGHT = 1.8;
-const PAINTING_SPACING = 4.5;
 const WALK_SPEED = 5;
 const EYE_HEIGHT = 1.65;
+const MAX_SPOTLIGHTS = 12; // performance cap
 
 // ─── State ─────────────────────────────────────────
 let camera, scene, renderer, controls;
@@ -55,21 +55,34 @@ const joystickBase = document.getElementById('joystick-base');
 const mobileHint = document.getElementById('mobile-hint');
 
 // ─── Room Size Calculator ──────────────────────────
+function getSpacing(count) {
+  // Tighter spacing for larger collections
+  if (count <= 8) return 4.5;
+  if (count <= 15) return 4.0;
+  if (count <= 25) return 3.5;
+  return 3.0;
+}
+
 function calculateRoom(count) {
-  // Distribute: left wall, right wall, back wall
-  // Back wall gets fewer since it's shorter (width-based)
-  const backWallCapacity = Math.max(1, Math.floor((ROOM.width - 4) / PAINTING_SPACING));
-  const backCount = Math.min(backWallCapacity, Math.max(0, count - 2));
-  const sideCount = count - backCount;
-  const perSide = Math.ceil(sideCount / 2);
+  if (count === 0) { ROOM.width = 18; ROOM.depth = 15; return; }
 
-  // Room depth = enough for side wall paintings
-  const neededDepth = Math.max(15, (perSide + 1) * PAINTING_SPACING + 4);
-  ROOM.depth = Math.min(60, neededDepth);
+  const spacing = getSpacing(count);
 
-  // Room width = enough for back wall paintings (min 18)
-  const neededWidth = Math.max(18, (backCount + 1) * PAINTING_SPACING + 4);
-  ROOM.width = Math.min(40, neededWidth);
+  // Use 4 walls for large collections: left, right, back, front (with entrance gap)
+  const useAllWalls = count > 12;
+  const wallCount = useAllWalls ? 4 : (count > 2 ? 3 : 2);
+
+  // Evenly distribute across walls
+  const perWall = Math.ceil(count / wallCount);
+
+  // Side walls (left/right) determine depth
+  const sidePerWall = Math.ceil(count / wallCount);
+  const neededDepth = Math.max(15, (sidePerWall + 1) * spacing + 4);
+  ROOM.depth = Math.min(70, neededDepth);
+
+  // Width walls (back/front) need enough space
+  const neededWidth = Math.max(18, (perWall + 1) * spacing + 4);
+  ROOM.width = Math.min(50, neededWidth);
 }
 
 // ─── Init ──────────────────────────────────────────
@@ -90,7 +103,8 @@ async function init() {
   // Scene
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a1a1a);
-  scene.fog = new THREE.FogExp2(0x1a1a1a, 0.012);
+  const fogDensity = Math.max(0.008, 0.02 - artworks.length * 0.0003);
+  scene.fog = new THREE.FogExp2(0x1a1a1a, fogDensity);
 
   // Camera
   camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -150,25 +164,44 @@ function updateLoading(pct, text) {
 }
 
 // ─── Lights ────────────────────────────────────────
+let spotlightCount = 0;
+
 function createLights() {
-  // Ambient
-  scene.add(new THREE.AmbientLight(0xfff5e6, 0.3));
+  // Ambient — brighter for larger rooms
+  const ambientIntensity = Math.min(0.5, 0.25 + artworks.length * 0.008);
+  scene.add(new THREE.AmbientLight(0xfff5e6, ambientIntensity));
 
-  // Main ceiling light
-  const ceilingLight = new THREE.PointLight(0xfff0d6, 0.5, 50);
-  ceilingLight.position.set(0, ROOM.height - 0.5, 0);
-  scene.add(ceilingLight);
-
-  // Spotlights for paintings (will be added per painting)
+  // Multiple ceiling lights spread across room
+  const lightsX = Math.max(1, Math.ceil(ROOM.width / 16));
+  const lightsZ = Math.max(1, Math.ceil(ROOM.depth / 16));
+  for (let ix = 0; ix < lightsX; ix++) {
+    for (let iz = 0; iz < lightsZ; iz++) {
+      const px = (ix / Math.max(1, lightsX - 1) - 0.5) * (ROOM.width * 0.7);
+      const pz = (iz / Math.max(1, lightsZ - 1) - 0.5) * (ROOM.depth * 0.7);
+      const light = new THREE.PointLight(0xfff0d6, 0.4, ROOM.depth);
+      light.position.set(lightsX === 1 ? 0 : px, ROOM.height - 0.5, lightsZ === 1 ? 0 : pz);
+      scene.add(light);
+    }
+  }
 }
 
 function addPaintingSpotlight(x, y, z, targetX, targetZ) {
-  const spot = new THREE.SpotLight(0xfff5e6, 2.5, 12, Math.PI / 6, 0.6, 1.5);
-  spot.position.set(x, y, z);
-  spot.target.position.set(targetX, EYE_HEIGHT, targetZ);
-  spot.castShadow = true;
-  scene.add(spot);
-  scene.add(spot.target);
+  if (spotlightCount < MAX_SPOTLIGHTS) {
+    // Full spotlight with shadows
+    const spot = new THREE.SpotLight(0xfff5e6, 2.5, 12, Math.PI / 6, 0.6, 1.5);
+    spot.position.set(x, y, z);
+    spot.target.position.set(targetX, EYE_HEIGHT, targetZ);
+    spot.castShadow = true;
+    spot.shadow.mapSize.set(512, 512);
+    scene.add(spot);
+    scene.add(spot.target);
+    spotlightCount++;
+  } else {
+    // Cheaper point light for performance
+    const light = new THREE.PointLight(0xfff5e6, 1.5, 8);
+    light.position.set(x, y, z);
+    scene.add(light);
+  }
 }
 
 // ─── Room ──────────────────────────────────────────
@@ -239,14 +272,15 @@ async function createPaintings() {
   const loader = new THREE.TextureLoader();
   const count = artworks.length;
   if (count === 0) return;
+  const spacing = getSpacing(count);
 
   // ── Wall assignment plan ──
-  // Walls: 'left' (depth-axis), 'right' (depth-axis), 'back' (width-axis)
-  const backWallCapacity = Math.max(1, Math.floor((ROOM.width - 4) / PAINTING_SPACING));
-  const sideWallCapacity = Math.max(1, Math.floor((ROOM.depth - 4) / PAINTING_SPACING));
+  // Walls: left, right, back, front (front has entrance gap)
+  const sideCapacity = Math.max(1, Math.floor((ROOM.depth - 4) / spacing));
+  const widthCapacity = Math.max(1, Math.floor((ROOM.width - 4) / spacing));
+  const frontCapacity = Math.max(0, Math.floor((ROOM.width - 8) / spacing)); // entrance gap
 
-  // Smart distribution: fill all 3 walls evenly
-  let leftCount, rightCount, backCount;
+  let leftCount, rightCount, backCount, frontCount = 0;
   if (count <= 2) {
     leftCount = 1;
     rightCount = count > 1 ? 1 : 0;
@@ -255,12 +289,29 @@ async function createPaintings() {
     backCount = 1;
     leftCount = Math.ceil((count - 1) / 2);
     rightCount = count - 1 - leftCount;
-  } else {
-    // 3-wall distribution
-    backCount = Math.min(backWallCapacity, Math.max(1, Math.floor(count / 3)));
+  } else if (count <= 12) {
+    // 3 walls
+    backCount = Math.min(widthCapacity, Math.max(1, Math.floor(count / 3)));
     const sideTotal = count - backCount;
     leftCount = Math.ceil(sideTotal / 2);
     rightCount = sideTotal - leftCount;
+  } else {
+    // 4 walls for large collections
+    const perWall = Math.ceil(count / 4);
+    leftCount = Math.min(sideCapacity, perWall);
+    rightCount = Math.min(sideCapacity, perWall);
+    backCount = Math.min(widthCapacity, perWall);
+    frontCount = Math.min(frontCapacity, count - leftCount - rightCount - backCount);
+    // Redistribute overflow back to sides
+    let remaining = count - leftCount - rightCount - backCount - frontCount;
+    while (remaining > 0) {
+      if (leftCount < sideCapacity) { leftCount++; remaining--; }
+      if (remaining > 0 && rightCount < sideCapacity) { rightCount++; remaining--; }
+      if (remaining > 0 && backCount < widthCapacity) { backCount++; remaining--; }
+      if (remaining <= 0) break;
+      // Safety valve
+      break;
+    }
   }
 
   // Build placement list: { wall, index, total }
@@ -278,6 +329,10 @@ async function createPaintings() {
   // Back wall
   for (let i = 0; i < backCount; i++) {
     placements.push({ wall: 'back', idx: i, total: backCount, artIdx: artIdx++ });
+  }
+  // Front wall (offset from center for entrance gap)
+  for (let i = 0; i < frontCount; i++) {
+    placements.push({ wall: 'front', idx: i, total: frontCount, artIdx: artIdx++ });
   }
 
   // ── Place each painting ──
@@ -317,23 +372,30 @@ async function createPaintings() {
 
           // ── Position based on wall ──
           if (p.wall === 'left') {
-            const startZ = -(p.total - 1) * PAINTING_SPACING / 2;
-            const z = startZ + p.idx * PAINTING_SPACING;
+            const startZ = -(p.total - 1) * spacing / 2;
+            const z = startZ + p.idx * spacing;
             group.position.set(-ROOM.width / 2 + 0.05, EYE_HEIGHT + 0.2, z);
             group.rotation.y = Math.PI / 2;
             addPaintingSpotlight(-ROOM.width / 2 + 2, ROOM.height - 0.3, z, -ROOM.width / 2, z);
           } else if (p.wall === 'right') {
-            const startZ = -(p.total - 1) * PAINTING_SPACING / 2;
-            const z = startZ + p.idx * PAINTING_SPACING;
+            const startZ = -(p.total - 1) * spacing / 2;
+            const z = startZ + p.idx * spacing;
             group.position.set(ROOM.width / 2 - 0.05, EYE_HEIGHT + 0.2, z);
             group.rotation.y = -Math.PI / 2;
             addPaintingSpotlight(ROOM.width / 2 - 2, ROOM.height - 0.3, z, ROOM.width / 2, z);
           } else if (p.wall === 'back') {
-            const startX = -(p.total - 1) * PAINTING_SPACING / 2;
-            const x = startX + p.idx * PAINTING_SPACING;
+            const startX = -(p.total - 1) * spacing / 2;
+            const x = startX + p.idx * spacing;
             group.position.set(x, EYE_HEIGHT + 0.2, -ROOM.depth / 2 + 0.05);
             group.rotation.y = 0;
             addPaintingSpotlight(x, ROOM.height - 0.3, -ROOM.depth / 2 + 2, x, -ROOM.depth / 2);
+          } else if (p.wall === 'front') {
+            // Front wall — offset paintings to sides, leaving center entrance clear
+            const startX = -(p.total - 1) * spacing / 2;
+            const x = startX + p.idx * spacing;
+            group.position.set(x, EYE_HEIGHT + 0.2, ROOM.depth / 2 - 0.05);
+            group.rotation.y = Math.PI;
+            addPaintingSpotlight(x, ROOM.height - 0.3, ROOM.depth / 2 - 2, x, ROOM.depth / 2);
           }
 
           scene.add(group);
