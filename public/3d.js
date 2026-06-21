@@ -774,7 +774,9 @@ function setupDesktopEvents() {
   renderer.domElement.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return; // Only left click
     if (!controls.isLocked) return;
-    raycaster.setFromCamera(pointer, camera);
+    
+    // When pointer is locked, we always click exactly where we are looking (center of screen: 0,0)
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
     const intersects = raycaster.intersectObjects(paintingMeshes);
     if (intersects.length > 0 && intersects[0].distance < 25) {
       const artwork = intersects[0].object.userData.artwork;
