@@ -40,25 +40,59 @@ const VISITORS_FILE = path.join(DATA_DIR, 'visitors.json');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-// Seed: If artworks.json doesn't exist in volume, copy from bundled data
+// Seed: Smart merge — add any new bundled artworks to the volume data
 const BUNDLED_ARTWORKS = path.join(__dirname, 'data', 'artworks.json');
-if (!fs.existsSync(ARTWORKS_FILE) && fs.existsSync(BUNDLED_ARTWORKS) && VOLUME_PATH) {
-  fs.copyFileSync(BUNDLED_ARTWORKS, ARTWORKS_FILE);
-  console.log('📋 Mevcut eser verileri volume\'a kopyalandı.');
+if (fs.existsSync(BUNDLED_ARTWORKS) && VOLUME_PATH) {
+  const bundled = JSON.parse(fs.readFileSync(BUNDLED_ARTWORKS, 'utf-8'));
+  
+  if (!fs.existsSync(ARTWORKS_FILE)) {
+    // First deploy: copy everything
+    fs.writeFileSync(ARTWORKS_FILE, JSON.stringify(bundled, null, 2), 'utf-8');
+    console.log('📋 Eser verileri volume\'a kopyalandı.');
+  } else {
+    // Subsequent deploys: merge new artworks by ID + update exhibition field
+    const existing = JSON.parse(fs.readFileSync(ARTWORKS_FILE, 'utf-8'));
+    const existingIds = new Set(existing.map(a => a.id));
+    let added = 0;
+    
+    // Add exhibition field to old artworks that don't have it
+    existing.forEach(a => {
+      if (!a.exhibition) {
+        a.exhibition = '2025-2026';
+      }
+    });
+    
+    // Merge in any new bundled artworks
+    bundled.forEach(b => {
+      if (!existingIds.has(b.id)) {
+        existing.push(b);
+        added++;
+      }
+    });
+    
+    if (added > 0) {
+      fs.writeFileSync(ARTWORKS_FILE, JSON.stringify(existing, null, 2), 'utf-8');
+      console.log(`📋 ${added} yeni eser volume'a eklendi (merge).`);
+    }
+  }
 }
 
-// Seed: Copy bundled images to volume on first deploy
+// Seed: Copy ALL bundled images to volume (overwrite if newer)
 if (VOLUME_PATH) {
   const bundledImages = path.join(__dirname, 'public', 'images');
   if (fs.existsSync(bundledImages)) {
     const files = fs.readdirSync(bundledImages);
+    let copied = 0;
     files.forEach((file) => {
+      const src = path.join(bundledImages, file);
       const dest = path.join(UPLOADS_DIR, file);
-      if (!fs.existsSync(dest)) {
-        fs.copyFileSync(path.join(bundledImages, file), dest);
+      // Always copy if doesn't exist OR if bundled is newer
+      if (!fs.existsSync(dest) || fs.statSync(src).mtimeMs > fs.statSync(dest).mtimeMs) {
+        fs.copyFileSync(src, dest);
+        copied++;
       }
     });
-    if (files.length > 0) console.log(`🖼️  ${files.length} görsel volume'a kopyalandı.`);
+    if (copied > 0) console.log(`🖼️  ${copied} görsel volume'a kopyalandı.`);
   }
 }
 
