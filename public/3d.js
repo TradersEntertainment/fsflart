@@ -23,10 +23,6 @@ const MAX_SPOTLIGHTS = 50; // Every painting gets a spotlight
 let audioListener = null;
 let bgmSound = null;
 
-// ─── Portal System ─────────────────────────────────
-let portalMesh = null;
-let portalTargetUrl = null;
-let portalGroupGlobal = null;
 
 function initAudio() {
   if (audioListener) return; // already initialized
@@ -114,26 +110,31 @@ function getSpacing(count) {
   return 3.0;
 }
 
-function calculateRoom(count) {
-  if (count === 0) { ROOM.width = 18; ROOM.depth = 15; return; }
+const CORRIDOR_WIDTH = 12;
+const CORRIDOR_DEPTH = 10;
+let ROOM_OFFSET_X = 0;
+let mainArtworks = [];
+let specialArtworks = [];
 
-  const spacing = getSpacing(count);
+function calculateRoom(count1, count2) {
+  const maxCount = Math.max(count1, count2, 1);
+  if (maxCount === 0) { ROOM.width = 18; ROOM.depth = 15; return; }
 
-  // Use 4 walls for large collections: left, right, back, front (with entrance gap)
-  const useAllWalls = count > 12;
-  const wallCount = useAllWalls ? 4 : (count > 2 ? 3 : 2);
+  const spacing = getSpacing(maxCount);
 
-  // Evenly distribute across walls
-  const perWall = Math.ceil(count / wallCount);
-
-  // Side walls (left/right) determine depth
-  const sidePerWall = Math.ceil(count / wallCount);
+  // Use 4 walls for large collections
+  const useAllWalls = maxCount > 12;
+  const wallCount = useAllWalls ? 4 : (maxCount > 2 ? 3 : 2);
+  const perWall = Math.ceil(maxCount / wallCount);
+  const sidePerWall = Math.ceil(maxCount / wallCount);
+  
   const neededDepth = Math.max(15, (sidePerWall + 1) * spacing + 4);
   ROOM.depth = Math.min(70, neededDepth);
 
-  // Width walls (back/front) need enough space
   const neededWidth = Math.max(18, (perWall + 1) * spacing + 4);
   ROOM.width = Math.min(50, neededWidth);
+
+  ROOM_OFFSET_X = ROOM.width + CORRIDOR_WIDTH;
 }
 
 // ─── Init ──────────────────────────────────────────
@@ -160,26 +161,18 @@ function loadPlayerModel() {
 }
 
 async function init() {
-  // Fetch artworks
   try {
     const res = await fetch('/api/artworks');
     const allArtworks = await res.json();
-    
-    // Filter by exhibition if specified in URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const targetExhibition = urlParams.get('exhibition');
-    
-    if (targetExhibition) {
-      artworks = allArtworks.filter(a => (a.exhibition || '2025-2026') === targetExhibition);
-    } else {
-      artworks = allArtworks;
-    }
+    mainArtworks = allArtworks.filter(a => (a.exhibition || '2025-2026') === '2025-2026');
+    specialArtworks = allArtworks.filter(a => a.exhibition === 'ozel-koleksiyon');
+    artworks = allArtworks;
   } catch {
-    artworks = [];
+    artworks = []; mainArtworks = []; specialArtworks = [];
   }
 
   // Dynamic room sizing
-  calculateRoom(artworks.length);
+  calculateRoom(mainArtworks.length, specialArtworks.length);
 
   loadPlayerModel();
 
@@ -193,7 +186,14 @@ async function init() {
 
   // Camera
   camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(0, EYE_HEIGHT, ROOM.depth / 2 - 3);
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetExhibition = urlParams.get('exhibition');
+  if (targetExhibition === 'ozel-koleksiyon') {
+    camera.position.set(ROOM_OFFSET_X, EYE_HEIGHT, ROOM.depth / 2 - 3);
+  } else {
+    camera.position.set(0, EYE_HEIGHT, ROOM.depth / 2 - 3);
+  }
 
   // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -206,25 +206,24 @@ async function init() {
   document.body.appendChild(renderer.domElement);
 
   updateLoading(20, 'Işıklar yerleştiriliyor…');
-
-  // Controls
   controls = new PointerLockControls(camera, document.body);
-
-  // Lights
   createLights();
-  updateLoading(30, 'Galeri inşa ediliyor…');
 
-  // Room
-  createRoom();
+  updateLoading(30, 'Odalar inşa ediliyor…');
+  createRoom(0, true);
+  createRoom(ROOM_OFFSET_X, false);
+  createCorridor();
+  createSkybox();
+  createDust();
+
   updateLoading(50, 'Eserler asılıyor…');
+  await createPaintings(mainArtworks, 0);
+  await createPaintings(specialArtworks, ROOM_OFFSET_X);
 
-  // Paintings
-  await createPaintings();
   updateLoading(90, 'Son rötuşlar…');
+  createDecorations(0);
+  createDecorations(ROOM_OFFSET_X);
 
-  // Decorations
-  createDecorations();
-  createPortal();
   updateLoading(100, 'Hazır!');
 
   // Events
@@ -257,18 +256,26 @@ function createLights() {
   const ambientIntensity = Math.min(0.5, 0.25 + artworks.length * 0.008);
   scene.add(new THREE.AmbientLight(0xfff5e6, ambientIntensity));
 
-  // Multiple ceiling lights spread across room
+  // Multiple ceiling lights spread across both rooms
   const lightsX = Math.max(1, Math.ceil(ROOM.width / 16));
   const lightsZ = Math.max(1, Math.ceil(ROOM.depth / 16));
-  for (let ix = 0; ix < lightsX; ix++) {
-    for (let iz = 0; iz < lightsZ; iz++) {
-      const px = (ix / Math.max(1, lightsX - 1) - 0.5) * (ROOM.width * 0.7);
-      const pz = (iz / Math.max(1, lightsZ - 1) - 0.5) * (ROOM.depth * 0.7);
-      const light = new THREE.PointLight(0xfff0d6, 0.4, ROOM.depth);
-      light.position.set(lightsX === 1 ? 0 : px, ROOM.height - 0.5, lightsZ === 1 ? 0 : pz);
-      scene.add(light);
+  
+  [0, ROOM_OFFSET_X].forEach(offsetX => {
+    for (let ix = 0; ix < lightsX; ix++) {
+      for (let iz = 0; iz < lightsZ; iz++) {
+        const px = offsetX + (ix / Math.max(1, lightsX - 1) - 0.5) * (ROOM.width * 0.7);
+        const pz = (iz / Math.max(1, lightsZ - 1) - 0.5) * (ROOM.depth * 0.7);
+        const light = new THREE.PointLight(0xfff0d6, 0.4, ROOM.depth);
+        light.position.set(lightsX === 1 ? offsetX : px, ROOM.height - 0.5, lightsZ === 1 ? 0 : pz);
+        scene.add(light);
+      }
     }
-  }
+  });
+
+  // Corridor light
+  const cLight = new THREE.PointLight(0xfff0d6, 0.6, 20);
+  cLight.position.set(ROOM_OFFSET_X / 2, ROOM.height - 0.5, 0);
+  scene.add(cLight);
 }
 
 function addPaintingSpotlight(x, y, z, targetX, targetZ) {
@@ -326,157 +333,153 @@ function createMinecraftGlassTexture() {
 }
 
 // ─── Room ──────────────────────────────────────────
-function createRoom() {
+function createRoom(offsetX, isRoom1) {
   const texLoader = new THREE.TextureLoader();
 
   // Floor (Reflective Marble Effect)
   const floorGeo = new THREE.PlaneGeometry(ROOM.width, ROOM.depth);
-  
-  // The actual mirror reflector
   const floorReflector = new Reflector(floorGeo, {
     clipBias: 0.003,
-    textureWidth: window.innerWidth > 800 ? 1024 : 512, // Optimize for mobile
+    textureWidth: window.innerWidth > 800 ? 1024 : 512,
     textureHeight: window.innerHeight > 800 ? 1024 : 512,
-    color: 0x889999, // slight tint to the reflection
+    color: 0x889999,
   });
   floorReflector.rotation.x = -Math.PI / 2;
+  floorReflector.position.x = offsetX;
   scene.add(floorReflector);
 
-  // An overlay to make it look like a material (marble/wood) rather than a pure mirror
   const floorMat = new THREE.MeshStandardMaterial({
-    color: FLOOR_COLOR,
-    roughness: 0.2, // very smooth
-    metalness: 0.1,
-    transparent: true,
-    opacity: 0.85, // let 15% of the reflection bleed through
+    color: FLOOR_COLOR, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.85,
   });
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.y = 0.01; // slightly above reflector to avoid Z-fighting
+  floor.position.set(offsetX, 0.01, 0);
   floor.receiveShadow = true;
   scene.add(floor);
 
   // Ceiling with Massive Deep Recessed Skylight
   const ceilMat = new THREE.MeshStandardMaterial({ color: CEILING_COLOR, roughness: 0.9 });
-  
-  // The hole in the ceiling (40%)
   const holeWidth = ROOM.width * 0.40;
   const holeDepth = ROOM.depth * 0.40;
-
-  // 4 pieces to create a hole in the main ceiling
   const ceilZLen = (ROOM.depth - holeDepth) / 2;
+
   const ceil1 = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.width, ceilZLen), ceilMat);
-  ceil1.rotation.x = Math.PI / 2;
-  ceil1.position.set(0, ROOM.height, -ROOM.depth/2 + ceilZLen/2);
-  scene.add(ceil1);
+  ceil1.rotation.x = Math.PI / 2; ceil1.position.set(offsetX, ROOM.height, -ROOM.depth/2 + ceilZLen/2); scene.add(ceil1);
 
   const ceil2 = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.width, ceilZLen), ceilMat);
-  ceil2.rotation.x = Math.PI / 2;
-  ceil2.position.set(0, ROOM.height, ROOM.depth/2 - ceilZLen/2);
-  scene.add(ceil2);
+  ceil2.rotation.x = Math.PI / 2; ceil2.position.set(offsetX, ROOM.height, ROOM.depth/2 - ceilZLen/2); scene.add(ceil2);
 
   const ceilXLen = (ROOM.width - holeWidth) / 2;
   const ceil3 = new THREE.Mesh(new THREE.PlaneGeometry(ceilXLen, holeDepth), ceilMat);
-  ceil3.rotation.x = Math.PI / 2;
-  ceil3.position.set(-ROOM.width/2 + ceilXLen/2, ROOM.height, 0);
-  scene.add(ceil3);
+  ceil3.rotation.x = Math.PI / 2; ceil3.position.set(offsetX - ROOM.width/2 + ceilXLen/2, ROOM.height, 0); scene.add(ceil3);
 
   const ceil4 = new THREE.Mesh(new THREE.PlaneGeometry(ceilXLen, holeDepth), ceilMat);
-  ceil4.rotation.x = Math.PI / 2;
-  ceil4.position.set(ROOM.width/2 - ceilXLen/2, ROOM.height, 0);
-  scene.add(ceil4);
+  ceil4.rotation.x = Math.PI / 2; ceil4.position.set(offsetX + ROOM.width/2 - ceilXLen/2, ROOM.height, 0); scene.add(ceil4);
 
-  // ─── Skylight Glass (Minecraft Style) ───
+  // Skylight Glass
   const mcGlassTex = createMinecraftGlassTexture();
-  // Each block is 1.5 units wide
   mcGlassTex.repeat.set(Math.ceil(holeWidth / 1.5), Math.ceil(holeDepth / 1.5));
-
   const glassGeo = new THREE.PlaneGeometry(holeWidth, holeDepth);
-  const glassMat = new THREE.MeshBasicMaterial({
-    map: mcGlassTex,
-    transparent: true,
-    opacity: 0.3, // Reduced opacity to make the Minecraft effect fainter and more transparent
-    side: THREE.DoubleSide
-  });
+  const glassMat = new THREE.MeshBasicMaterial({ map: mcGlassTex, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
   const glassPane = new THREE.Mesh(glassGeo, glassMat);
-  glassPane.rotation.x = Math.PI / 2;
-  glassPane.position.y = ROOM.height;
-  scene.add(glassPane);
+  glassPane.rotation.x = Math.PI / 2; glassPane.position.set(offsetX, ROOM.height, 0); scene.add(glassPane);
 
-  // Massive Starry Night Ceiling (Hanging above the hole)
-  const skyWidth = ROOM.width * 3.0; // Huge sky plane behind the ceiling
-  const skyDepth = ROOM.depth * 3.0;
+  // Walls
+  const wallMat = new THREE.MeshStandardMaterial({ color: WALL_COLOR, roughness: 0.85 });
+  const skirtMat = new THREE.MeshStandardMaterial({ color: 0x2c2420, roughness: 0.6 });
+  const skirtH = 0.12;
+
+  // Left wall
+  if (isRoom1) {
+    const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.depth, ROOM.height), wallMat);
+    leftWall.position.set(offsetX - ROOM.width / 2, ROOM.height / 2, 0);
+    leftWall.rotation.y = Math.PI / 2; scene.add(leftWall);
+
+    const ls = new THREE.Mesh(new THREE.BoxGeometry(0.02, skirtH, ROOM.depth), skirtMat);
+    ls.position.set(offsetX - ROOM.width / 2 + 0.01, skirtH / 2, 0); scene.add(ls);
+  } else {
+    // Room 2 left wall has a hole for the corridor
+    const w = (ROOM.depth - CORRIDOR_DEPTH) / 2;
+    const w1 = new THREE.Mesh(new THREE.PlaneGeometry(w, ROOM.height), wallMat);
+    w1.position.set(offsetX - ROOM.width / 2, ROOM.height / 2, -ROOM.depth/2 + w/2);
+    w1.rotation.y = Math.PI / 2; scene.add(w1);
+
+    const w2 = new THREE.Mesh(new THREE.PlaneGeometry(w, ROOM.height), wallMat);
+    w2.position.set(offsetX - ROOM.width / 2, ROOM.height / 2, ROOM.depth/2 - w/2);
+    w2.rotation.y = Math.PI / 2; scene.add(w2);
+  }
+
+  // Right wall
+  if (!isRoom1) {
+    const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.depth, ROOM.height), wallMat);
+    rightWall.position.set(offsetX + ROOM.width / 2, ROOM.height / 2, 0);
+    rightWall.rotation.y = -Math.PI / 2; scene.add(rightWall);
+
+    const rs = new THREE.Mesh(new THREE.BoxGeometry(0.02, skirtH, ROOM.depth), skirtMat);
+    rs.position.set(offsetX + ROOM.width / 2 - 0.01, skirtH / 2, 0); scene.add(rs);
+  } else {
+    // Room 1 right wall has a hole for the corridor
+    const w = (ROOM.depth - CORRIDOR_DEPTH) / 2;
+    const w1 = new THREE.Mesh(new THREE.PlaneGeometry(w, ROOM.height), wallMat);
+    w1.position.set(offsetX + ROOM.width / 2, ROOM.height / 2, -ROOM.depth/2 + w/2);
+    w1.rotation.y = -Math.PI / 2; scene.add(w1);
+
+    const w2 = new THREE.Mesh(new THREE.PlaneGeometry(w, ROOM.height), wallMat);
+    w2.position.set(offsetX + ROOM.width / 2, ROOM.height / 2, ROOM.depth/2 - w/2);
+    w2.rotation.y = -Math.PI / 2; scene.add(w2);
+  }
+
+  // Back wall
+  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.width, ROOM.height), wallMat);
+  backWall.position.set(offsetX, ROOM.height / 2, -ROOM.depth / 2); scene.add(backWall);
+
+  // Front wall
+  const frontWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.width, ROOM.height), wallMat);
+  frontWall.position.set(offsetX, ROOM.height / 2, ROOM.depth / 2);
+  frontWall.rotation.y = Math.PI; scene.add(frontWall);
+}
+
+function createCorridor() {
+  const wallMat = new THREE.MeshStandardMaterial({ color: WALL_COLOR, roughness: 0.85 });
+  const floorMat = new THREE.MeshStandardMaterial({ color: FLOOR_COLOR, roughness: 0.2, metalness: 0.1 });
+  const ceilMat = new THREE.MeshStandardMaterial({ color: CEILING_COLOR, roughness: 0.9 });
+  
+  const midX = ROOM_OFFSET_X / 2;
+  // Floor
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(CORRIDOR_WIDTH, CORRIDOR_DEPTH), floorMat);
+  floor.rotation.x = -Math.PI / 2; floor.position.set(midX, 0.01, 0); scene.add(floor);
+  
+  // Ceil
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(CORRIDOR_WIDTH, CORRIDOR_DEPTH), ceilMat);
+  ceil.rotation.x = Math.PI / 2; ceil.position.set(midX, ROOM.height, 0); scene.add(ceil);
+
+  // Front wall of corridor
+  const fw = new THREE.Mesh(new THREE.PlaneGeometry(CORRIDOR_WIDTH, ROOM.height), wallMat);
+  fw.position.set(midX, ROOM.height/2, CORRIDOR_DEPTH/2); fw.rotation.y = Math.PI; scene.add(fw);
+  
+  // Back wall of corridor
+  const bw = new THREE.Mesh(new THREE.PlaneGeometry(CORRIDOR_WIDTH, ROOM.height), wallMat);
+  bw.position.set(midX, ROOM.height/2, -CORRIDOR_DEPTH/2); scene.add(bw);
+}
+
+function createSkybox() {
+  const texLoader = new THREE.TextureLoader();
+  const skyWidth = (ROOM.width * 2 + CORRIDOR_WIDTH) * 3.0; // 500% scale essentially
+  const skyDepth = ROOM.depth * 5.0;
   const skyTex = texLoader.load('images/starry_sky_ai.png');
   skyTex.colorSpace = THREE.SRGBColorSpace;
   skyTex.wrapS = THREE.MirroredRepeatWrapping;
   skyTex.wrapT = THREE.MirroredRepeatWrapping;
-  skyTex.repeat.set(6, 6); // More repeats to cover the huge 3.0x room size without losing quality
+  skyTex.repeat.set(15, 15); // scaled up for massive sky
   
   const skyGeo = new THREE.PlaneGeometry(skyWidth, skyDepth);
+  const midX = ROOM_OFFSET_X / 2;
   
-  // 1. Dark Base Sky (Lowers overall brightness of the clouds/background)
-  const skyMatBase = new THREE.MeshBasicMaterial({ 
-    map: skyTex, 
-    color: 0x444455 // Dark tint to simulate deep night
-  });
-  const skylightBase = new THREE.Mesh(skyGeo, skyMatBase);
-  skylightBase.rotation.x = Math.PI / 2;
-  skylightBase.position.y = ROOM.height + 3.5; 
-  scene.add(skylightBase);
+  const skylightBase = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ map: skyTex, color: 0x444455 }));
+  skylightBase.rotation.x = Math.PI / 2; skylightBase.position.set(midX, ROOM.height + 3.5, 0); scene.add(skylightBase);
 
-  // 2. Glow Layer (Additive blending to make only the bright stars pop)
-  const skyMatGlow = new THREE.MeshBasicMaterial({ 
-    map: skyTex, 
-    color: 0xffeebb, // Warm tint to enhance yellow stars
-    blending: THREE.AdditiveBlending,
-    transparent: true,
-    opacity: 0.45 // Adjusts how much the stars glow
-  });
-  const skylightGlow = new THREE.Mesh(skyGeo, skyMatGlow);
-  skylightGlow.rotation.x = Math.PI / 2;
-  skylightGlow.position.y = ROOM.height + 3.49; // Slightly below the base
-  scene.add(skylightGlow);
-
-  // Atmospheric Dust Particles
-  createDust();
-
-  // Walls
-  const wallMat = new THREE.MeshStandardMaterial({ color: WALL_COLOR, roughness: 0.85 });
-
-  // Left wall
-  const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.depth, ROOM.height), wallMat);
-  leftWall.position.set(-ROOM.width / 2, ROOM.height / 2, 0);
-  leftWall.rotation.y = Math.PI / 2;
-  scene.add(leftWall);
-
-  // Right wall
-  const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.depth, ROOM.height), wallMat);
-  rightWall.position.set(ROOM.width / 2, ROOM.height / 2, 0);
-  rightWall.rotation.y = -Math.PI / 2;
-  scene.add(rightWall);
-
-  // Back wall
-  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.width, ROOM.height), wallMat);
-  backWall.position.set(0, ROOM.height / 2, -ROOM.depth / 2);
-  scene.add(backWall);
-
-  // Front wall
-  const frontWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.width, ROOM.height), wallMat);
-  frontWall.position.set(0, ROOM.height / 2, ROOM.depth / 2);
-  frontWall.rotation.y = Math.PI;
-  scene.add(frontWall);
-
-  // Baseboard / skirting
-  const skirtMat = new THREE.MeshStandardMaterial({ color: 0x2c2420, roughness: 0.6 });
-  const skirtH = 0.12;
-  // Left
-  const ls = new THREE.Mesh(new THREE.BoxGeometry(0.02, skirtH, ROOM.depth), skirtMat);
-  ls.position.set(-ROOM.width / 2 + 0.01, skirtH / 2, 0);
-  scene.add(ls);
-  // Right
-  const rs = ls.clone();
-  rs.position.x = ROOM.width / 2 - 0.01;
-  scene.add(rs);
+  const skylightGlow = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ map: skyTex, color: 0xffeebb, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.45 }));
+  skylightGlow.rotation.x = Math.PI / 2; skylightGlow.position.set(midX, ROOM.height + 3.49, 0); scene.add(skylightGlow);
 }
 
 // ─── Particles ─────────────────────────────────────
@@ -503,17 +506,16 @@ function createDust() {
 }
 
 // ─── Paintings ─────────────────────────────────────
-async function createPaintings() {
+async function createPaintings(list, offsetX) {
   const loader = new THREE.TextureLoader();
-  const count = artworks.length;
+  const count = list.length;
   if (count === 0) return;
   const spacing = getSpacing(count);
 
   // ── Wall assignment plan ──
-  // Walls: left, right, back, front (front has entrance gap)
   const sideCapacity = Math.max(1, Math.floor((ROOM.depth - 4) / spacing));
   const widthCapacity = Math.max(1, Math.floor((ROOM.width - 4) / spacing));
-  const frontCapacity = Math.max(0, Math.floor((ROOM.width - 8) / spacing)); // entrance gap
+  const frontCapacity = Math.max(0, Math.floor((ROOM.width - 8) / spacing)); 
 
   let leftCount, rightCount, backCount, frontCount = 0;
   if (count <= 2) {
@@ -525,54 +527,35 @@ async function createPaintings() {
     leftCount = Math.ceil((count - 1) / 2);
     rightCount = count - 1 - leftCount;
   } else if (count <= 12) {
-    // 3 walls
     backCount = Math.min(widthCapacity, Math.max(1, Math.floor(count / 3)));
     const sideTotal = count - backCount;
     leftCount = Math.ceil(sideTotal / 2);
     rightCount = sideTotal - leftCount;
   } else {
-    // 4 walls for large collections
     const perWall = Math.ceil(count / 4);
     leftCount = Math.min(sideCapacity, perWall);
     rightCount = Math.min(sideCapacity, perWall);
     backCount = Math.min(widthCapacity, perWall);
     frontCount = Math.min(frontCapacity, count - leftCount - rightCount - backCount);
-    // Redistribute overflow back to sides
     let remaining = count - leftCount - rightCount - backCount - frontCount;
     while (remaining > 0) {
       if (leftCount < sideCapacity) { leftCount++; remaining--; }
       if (remaining > 0 && rightCount < sideCapacity) { rightCount++; remaining--; }
       if (remaining > 0 && backCount < widthCapacity) { backCount++; remaining--; }
       if (remaining <= 0) break;
-      // Safety valve
       break;
     }
   }
 
-  // Build placement list: { wall, index, total }
   const placements = [];
   let artIdx = 0;
+  for (let i = 0; i < leftCount; i++) placements.push({ wall: 'left', idx: i, total: leftCount, artIdx: artIdx++ });
+  for (let i = 0; i < rightCount; i++) placements.push({ wall: 'right', idx: i, total: rightCount, artIdx: artIdx++ });
+  for (let i = 0; i < backCount; i++) placements.push({ wall: 'back', idx: i, total: backCount, artIdx: artIdx++ });
+  for (let i = 0; i < frontCount; i++) placements.push({ wall: 'front', idx: i, total: frontCount, artIdx: artIdx++ });
 
-  // Left wall
-  for (let i = 0; i < leftCount; i++) {
-    placements.push({ wall: 'left', idx: i, total: leftCount, artIdx: artIdx++ });
-  }
-  // Right wall
-  for (let i = 0; i < rightCount; i++) {
-    placements.push({ wall: 'right', idx: i, total: rightCount, artIdx: artIdx++ });
-  }
-  // Back wall
-  for (let i = 0; i < backCount; i++) {
-    placements.push({ wall: 'back', idx: i, total: backCount, artIdx: artIdx++ });
-  }
-  // Front wall (offset from center for entrance gap)
-  for (let i = 0; i < frontCount; i++) {
-    placements.push({ wall: 'front', idx: i, total: frontCount, artIdx: artIdx++ });
-  }
-
-  // ── Place each painting ──
   for (const p of placements) {
-    const artwork = artworks[p.artIdx];
+    const artwork = list[p.artIdx];
     if (!artwork) continue;
 
     await new Promise((resolve) => {
@@ -605,32 +588,34 @@ async function createPaintings() {
           // Name plate
           createNamePlate(group, artwork, pw);
 
-          // ── Position based on wall ──
+          let startZ = -(p.total - 1) * spacing / 2;
+          let z = startZ + p.idx * spacing;
+          let startX = -(p.total - 1) * spacing / 2;
+          let x = startX + p.idx * spacing;
+
+          // Push artworks out of the corridor hole
+          const isHoleRight = (offsetX === 0 && p.wall === 'right');
+          const isHoleLeft = (offsetX !== 0 && p.wall === 'left');
+          if ((isHoleRight || isHoleLeft) && Math.abs(z) < (CORRIDOR_DEPTH/2 + pw/2 + 0.5)) {
+            z = (z < 0) ? -CORRIDOR_DEPTH/2 - pw/2 - 0.5 : CORRIDOR_DEPTH/2 + pw/2 + 0.5;
+          }
+
           if (p.wall === 'left') {
-            const startZ = -(p.total - 1) * spacing / 2;
-            const z = startZ + p.idx * spacing;
-            group.position.set(-ROOM.width / 2 + 0.05, EYE_HEIGHT + 0.2, z);
+            group.position.set(offsetX - ROOM.width / 2 + 0.05, EYE_HEIGHT + 0.2, z);
             group.rotation.y = Math.PI / 2;
-            addPaintingSpotlight(-ROOM.width / 2 + 2, ROOM.height - 0.3, z, -ROOM.width / 2, z);
+            addPaintingSpotlight(offsetX - ROOM.width / 2 + 2, ROOM.height - 0.3, z, offsetX - ROOM.width / 2, z);
           } else if (p.wall === 'right') {
-            const startZ = -(p.total - 1) * spacing / 2;
-            const z = startZ + p.idx * spacing;
-            group.position.set(ROOM.width / 2 - 0.05, EYE_HEIGHT + 0.2, z);
+            group.position.set(offsetX + ROOM.width / 2 - 0.05, EYE_HEIGHT + 0.2, z);
             group.rotation.y = -Math.PI / 2;
-            addPaintingSpotlight(ROOM.width / 2 - 2, ROOM.height - 0.3, z, ROOM.width / 2, z);
+            addPaintingSpotlight(offsetX + ROOM.width / 2 - 2, ROOM.height - 0.3, z, offsetX + ROOM.width / 2, z);
           } else if (p.wall === 'back') {
-            const startX = -(p.total - 1) * spacing / 2;
-            const x = startX + p.idx * spacing;
-            group.position.set(x, EYE_HEIGHT + 0.2, -ROOM.depth / 2 + 0.05);
+            group.position.set(offsetX + x, EYE_HEIGHT + 0.2, -ROOM.depth / 2 + 0.05);
             group.rotation.y = 0;
-            addPaintingSpotlight(x, ROOM.height - 0.3, -ROOM.depth / 2 + 2, x, -ROOM.depth / 2);
+            addPaintingSpotlight(offsetX + x, ROOM.height - 0.3, -ROOM.depth / 2 + 2, offsetX + x, -ROOM.depth / 2);
           } else if (p.wall === 'front') {
-            // Front wall — offset paintings to sides, leaving center entrance clear
-            const startX = -(p.total - 1) * spacing / 2;
-            const x = startX + p.idx * spacing;
-            group.position.set(x, EYE_HEIGHT + 0.2, ROOM.depth / 2 - 0.05);
+            group.position.set(offsetX + x, EYE_HEIGHT + 0.2, ROOM.depth / 2 - 0.05);
             group.rotation.y = Math.PI;
-            addPaintingSpotlight(x, ROOM.height - 0.3, ROOM.depth / 2 - 2, x, ROOM.depth / 2);
+            addPaintingSpotlight(offsetX + x, ROOM.height - 0.3, ROOM.depth / 2 - 2, offsetX + x, ROOM.depth / 2);
           }
 
           scene.add(group);
@@ -679,14 +664,15 @@ function createNamePlate(group, artwork, paintingWidth) {
 }
 
 // ─── Decorations ───────────────────────────────────
-function createDecorations() {
+function createDecorations(offsetX) {
   // Gallery benches
   const benchMat = new THREE.MeshStandardMaterial({ color: 0x2c2420, roughness: 0.6, metalness: 0.1 });
   const benchGeo = new THREE.BoxGeometry(2, 0.45, 0.6);
 
   [-8, 0, 8].forEach((z) => {
+    if (Math.abs(z) > ROOM.depth/2 - 2) return;
     const bench = new THREE.Mesh(benchGeo, benchMat);
-    bench.position.set(0, 0.225, z);
+    bench.position.set(offsetX, 0.225, z);
     bench.castShadow = true;
     bench.receiveShadow = true;
     scene.add(bench);
@@ -704,7 +690,7 @@ function createDecorations() {
   const trackMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.3, metalness: 0.8 });
   [-1, 1].forEach((side) => {
     const track = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, ROOM.depth * 0.85), trackMat);
-    track.position.set(side * (ROOM.width / 2 - 2.5), ROOM.height - 0.15, 0);
+    track.position.set(offsetX + side * (ROOM.width / 2 - 2.5), ROOM.height - 0.15, 0);
     scene.add(track);
   });
 }
@@ -784,7 +770,7 @@ function setupDesktopEvents() {
     // When pointer is locked, the center of the screen (0,0) is always the target
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
     const intersects = raycaster.intersectObjects(paintingMeshes);
-    if (intersects.length > 0 && intersects[0].distance < 5) {
+    if (intersects.length > 0 && intersects[0].distance < 15) {
       const artwork = intersects[0].object.userData.artwork;
       if (artwork) showArtworkPanel(artwork);
     }
@@ -1091,7 +1077,25 @@ function animate() {
 
     // Clamp to room bounds
     const margin = 1;
-    camera.position.x = Math.max(-ROOM.width / 2 + margin, Math.min(ROOM.width / 2 - margin, camera.position.x));
+    let minX, maxX;
+    let zVal = camera.position.z;
+    let xVal = camera.position.x;
+    
+    const inCorridorZ = zVal > -CORRIDOR_DEPTH/2 + margin && zVal < CORRIDOR_DEPTH/2 - margin;
+    
+    if (inCorridorZ) {
+       minX = -ROOM.width / 2 + margin;
+       maxX = ROOM_OFFSET_X + ROOM.width / 2 - margin;
+    } else {
+       if (xVal < ROOM_OFFSET_X / 2) {
+          minX = -ROOM.width / 2 + margin;
+          maxX = ROOM.width / 2 - margin;
+       } else {
+          minX = ROOM_OFFSET_X - ROOM.width / 2 + margin;
+          maxX = ROOM_OFFSET_X + ROOM.width / 2 - margin;
+       }
+    }
+    camera.position.x = Math.max(minX, Math.min(maxX, camera.position.x));
     camera.position.z = Math.max(-ROOM.depth / 2 + margin, Math.min(ROOM.depth / 2 - margin, camera.position.z));
     
     // Head Bobbing & Footsteps
@@ -1110,34 +1114,11 @@ function animate() {
       bobTime = 0;
     }
 
-    // Portal logic
-    if (portalMesh && portalGroupGlobal && isActive) {
-      // Pulsating effect for the portal
-      portalMesh.material.emissiveIntensity = 0.5 + Math.sin(Date.now() * 0.003) * 0.3; 
-      
-      // Check distance for teleportation
-      const dist = camera.position.distanceTo(portalGroupGlobal.position);
-      if (dist < 1.8 && portalTargetUrl) {
-        // Trigger teleport
-        const target = portalTargetUrl;
-        portalTargetUrl = null; // Prevent double trigger
-        
-        // Visual fade out effect before redirect
-        document.getElementById('start-overlay').classList.remove('hidden');
-        document.getElementById('start-overlay').style.backgroundColor = 'rgba(0,0,0,1)';
-        document.getElementById('start-overlay').innerHTML = '<div style="color:var(--color-accent); font-family:var(--font-serif); font-size:24px;">Işınlanıyor...</div>';
-        
-        setTimeout(() => {
-          window.location.href = target;
-        }, 500);
-      }
-    }
-
     // Crosshair highlight when looking at a painting (interactive hint)
     if (!isMobile && crosshair) {
       raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
       const hits = raycaster.intersectObjects(paintingMeshes);
-      if (hits.length > 0 && hits[0].distance < 5) {
+      if (hits.length > 0 && hits[0].distance < 15) {
         crosshair.style.borderColor = '#c9a96e';
         crosshair.style.transform = 'translate(-50%, -50%) scale(1.5)';
         crosshair.style.boxShadow = '0 0 8px rgba(201,169,110,0.6)';
@@ -1468,70 +1449,3 @@ setTimeout(() => {
   multiplayerLoop();
 }, 2000);
 
-// ─── Teleportation Portal ───────────────────────────
-function createPortal() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const targetExhibition = urlParams.get('exhibition');
-  const isSpecial = targetExhibition === 'ozel-koleksiyon';
-  
-  portalTargetUrl = isSpecial ? '3d.html?exhibition=2025-2026' : '3d.html?exhibition=ozel-koleksiyon';
-  const portalTitleText = isSpecial ? '2025-2026 Sergisi' : 'FSFL Özel Koleksiyon';
-
-  const portalGroup = new THREE.Group();
-  portalGroupGlobal = portalGroup; // Store for collision checks
-  
-  // Place at the far end of the room
-  portalGroup.position.set(0, EYE_HEIGHT, -ROOM.depth / 2 + 0.6); 
-
-  // Portal Frame (Obsidian style)
-  const frameGeo = new THREE.BoxGeometry(2.4, 3.4, 0.4);
-  const frameMat = new THREE.MeshStandardMaterial({
-    color: 0x150820, // Extremely dark obsidian
-    roughness: 0.9,
-    metalness: 0.1
-  });
-  const frame = new THREE.Mesh(frameGeo, frameMat);
-  portalGroup.add(frame);
-
-  // Portal Inner (Dark purple)
-  const innerGeo = new THREE.PlaneGeometry(2.0, 3.0);
-  const innerMat = new THREE.MeshStandardMaterial({
-    color: 0x1a0033, // Very dark purple
-    emissive: 0x2a0044, // Slight glow
-    emissiveIntensity: 0.5,
-    side: THREE.DoubleSide
-  });
-  portalMesh = new THREE.Mesh(innerGeo, innerMat);
-  portalMesh.position.z = 0.21; // Slightly in front of frame
-  portalGroup.add(portalMesh);
-  
-  // Portal Light
-  const pLight = new THREE.PointLight(0x3a0055, 1.5, 6);
-  pLight.position.set(0, 0, 1);
-  portalGroup.add(pLight);
-
-  // Floating Text (Gold)
-  const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = 'rgba(0,0,0,0)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.font = 'bold 48px serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#c9a96e'; // Gold text
-  ctx.fillText('Geçiş: ' + portalTitleText, 512, 128);
-  
-  const textTexture = new THREE.CanvasTexture(canvas);
-  const textMat = new THREE.MeshBasicMaterial({
-    map: textTexture,
-    transparent: true,
-    side: THREE.DoubleSide
-  });
-  const textMesh = new THREE.Mesh(new THREE.PlaneGeometry(4, 1), textMat);
-  textMesh.position.set(0, 2.2, 0.25); // Above portal
-  portalGroup.add(textMesh);
-
-  scene.add(portalGroup);
-}
