@@ -4,6 +4,7 @@
    ============================================================ */
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
 
 // ─── Config ────────────────────────────────────────
 const ROOM = { width: 28, height: 5, depth: 40 };
@@ -14,7 +15,7 @@ const FRAME_COLOR = 0x2c1a0a;
 const PAINTING_HEIGHT = 1.8;
 const WALK_SPEED = 5;
 const EYE_HEIGHT = 1.65;
-const MAX_SPOTLIGHTS = 12; // performance cap
+const MAX_SPOTLIGHTS = 50; // Every painting gets a spotlight
 
 // ─── State ─────────────────────────────────────────
 let camera, scene, renderer, controls;
@@ -22,6 +23,7 @@ let moveForward = false, moveBackward = false, moveLeft = false, moveRight = fal
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const clock = new THREE.Clock();
+let bobTime = 0; // For head bobbing effect
 const paintingMeshes = [];
 let artworks = [];
 const raycaster = new THREE.Raycaster();
@@ -187,12 +189,12 @@ function createLights() {
 
 function addPaintingSpotlight(x, y, z, targetX, targetZ) {
   if (spotlightCount < MAX_SPOTLIGHTS) {
-    // Full spotlight with shadows
+    // Dramatic cone spotlight
     const spot = new THREE.SpotLight(0xfff5e6, 2.5, 12, Math.PI / 6, 0.6, 1.5);
     spot.position.set(x, y, z);
     spot.target.position.set(targetX, EYE_HEIGHT, targetZ);
-    spot.castShadow = true;
-    spot.shadow.mapSize.set(512, 512);
+    // Shadow disabled for performance since there are many lights
+    spot.castShadow = false; 
     scene.add(spot);
     scene.add(spot.target);
     spotlightCount++;
@@ -208,15 +210,30 @@ function addPaintingSpotlight(x, y, z, targetX, targetZ) {
 function createRoom() {
   const texLoader = new THREE.TextureLoader();
 
-  // Floor
+  // Floor (Reflective Marble Effect)
   const floorGeo = new THREE.PlaneGeometry(ROOM.width, ROOM.depth);
+  
+  // The actual mirror reflector
+  const floorReflector = new Reflector(floorGeo, {
+    clipBias: 0.003,
+    textureWidth: window.innerWidth > 800 ? 1024 : 512, // Optimize for mobile
+    textureHeight: window.innerHeight > 800 ? 1024 : 512,
+    color: 0x889999, // slight tint to the reflection
+  });
+  floorReflector.rotation.x = -Math.PI / 2;
+  scene.add(floorReflector);
+
+  // An overlay to make it look like a material (marble/wood) rather than a pure mirror
   const floorMat = new THREE.MeshStandardMaterial({
     color: FLOOR_COLOR,
-    roughness: 0.7,
+    roughness: 0.2, // very smooth
     metalness: 0.1,
+    transparent: true,
+    opacity: 0.85, // let 15% of the reflection bleed through
   });
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0.01; // slightly above reflector to avoid Z-fighting
   floor.receiveShadow = true;
   scene.add(floor);
 
@@ -853,7 +870,17 @@ function animate() {
     const margin = 1;
     camera.position.x = Math.max(-ROOM.width / 2 + margin, Math.min(ROOM.width / 2 - margin, camera.position.x));
     camera.position.z = Math.max(-ROOM.depth / 2 + margin, Math.min(ROOM.depth / 2 - margin, camera.position.z));
-    camera.position.y = EYE_HEIGHT;
+    
+    // Head Bobbing
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+    if (speed > 1.0) {
+      bobTime += delta * 12; // bob speed
+      camera.position.y = EYE_HEIGHT + Math.sin(bobTime) * 0.06; // bob amplitude
+    } else {
+      // Smoothly return to eye height
+      camera.position.y += (EYE_HEIGHT - camera.position.y) * 0.1;
+      bobTime = 0;
+    }
   }
 
   renderer.render(scene, camera);
