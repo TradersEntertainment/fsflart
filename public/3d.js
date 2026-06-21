@@ -19,6 +19,48 @@ const WALK_SPEED = 5;
 const EYE_HEIGHT = 1.65;
 const MAX_SPOTLIGHTS = 50; // Every painting gets a spotlight
 
+// ─── Audio System ──────────────────────────────────
+let audioListener = null;
+let bgmSound = null;
+
+function initAudio() {
+  if (audioListener) return; // already initialized
+  audioListener = new THREE.AudioListener();
+  camera.add(audioListener);
+
+  bgmSound = new THREE.Audio(audioListener);
+  const audioLoader = new THREE.AudioLoader();
+  audioLoader.load('assets/music.ogg', (buffer) => {
+    bgmSound.setBuffer(buffer);
+    bgmSound.setLoop(true);
+    bgmSound.setVolume(0.15); // soft classical music
+    bgmSound.play();
+  });
+}
+
+function playFootstep() {
+  if (!audioListener || !audioListener.context) return;
+  const ctx = audioListener.context;
+  if (ctx.state !== 'running') return;
+  
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  
+  // A dull thud for footstep
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(100, t);
+  osc.frequency.exponentialRampToValueAtTime(10, t + 0.1);
+  
+  gain.gain.setValueAtTime(0.1, t);
+  gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+  
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  
+  osc.start(t);
+  osc.stop(t + 0.1);
+}
 // ─── State ─────────────────────────────────────────
 let camera, scene, renderer, controls;
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
@@ -273,25 +315,66 @@ function createRoom() {
   floor.receiveShadow = true;
   scene.add(floor);
 
-  // Ceiling with Skylight
-  const ceilGeo = new THREE.PlaneGeometry(ROOM.width, ROOM.depth);
+  // Ceiling with Deep Recessed Skylight
   const ceilMat = new THREE.MeshStandardMaterial({ color: CEILING_COLOR, roughness: 0.9 });
-  const ceil = new THREE.Mesh(ceilGeo, ceilMat);
-  ceil.rotation.x = Math.PI / 2;
-  ceil.position.y = ROOM.height;
-  scene.add(ceil);
-
-  // Architectural Skylight (Fake window)
-  const skyWidth = Math.min(6, ROOM.width * 0.4);
-  const skyDepth = Math.max(10, ROOM.depth * 0.6);
-  const skyGeo = new THREE.PlaneGeometry(skyWidth, skyDepth);
   
+  const skyWidth = Math.min(8, ROOM.width * 0.4);
+  const skyDepth = Math.max(12, ROOM.depth * 0.6);
+
+  // 4 pieces to create a hole in the main ceiling
+  const ceilZLen = (ROOM.depth - skyDepth) / 2;
+  const ceil1 = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.width, ceilZLen), ceilMat);
+  ceil1.rotation.x = Math.PI / 2;
+  ceil1.position.set(0, ROOM.height, -ROOM.depth/2 + ceilZLen/2);
+  scene.add(ceil1);
+
+  const ceil2 = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.width, ceilZLen), ceilMat);
+  ceil2.rotation.x = Math.PI / 2;
+  ceil2.position.set(0, ROOM.height, ROOM.depth/2 - ceilZLen/2);
+  scene.add(ceil2);
+
+  const ceilXLen = (ROOM.width - skyWidth) / 2;
+  const ceil3 = new THREE.Mesh(new THREE.PlaneGeometry(ceilXLen, skyDepth), ceilMat);
+  ceil3.rotation.x = Math.PI / 2;
+  ceil3.position.set(-ROOM.width/2 + ceilXLen/2, ROOM.height, 0);
+  scene.add(ceil3);
+
+  const ceil4 = new THREE.Mesh(new THREE.PlaneGeometry(ceilXLen, skyDepth), ceilMat);
+  ceil4.rotation.x = Math.PI / 2;
+  ceil4.position.set(ROOM.width/2 - ceilXLen/2, ROOM.height, 0);
+  scene.add(ceil4);
+
+  // Recess walls (tunnel going UP)
+  const recessHeight = 2.5; 
+  const recessMat = new THREE.MeshStandardMaterial({ color: 0x050508, roughness: 1 }); 
+  
+  const rWall1 = new THREE.Mesh(new THREE.PlaneGeometry(skyWidth, recessHeight), recessMat);
+  rWall1.position.set(0, ROOM.height + recessHeight/2, -skyDepth/2);
+  scene.add(rWall1);
+
+  const rWall2 = new THREE.Mesh(new THREE.PlaneGeometry(skyWidth, recessHeight), recessMat);
+  rWall2.position.set(0, ROOM.height + recessHeight/2, skyDepth/2);
+  rWall2.rotation.y = Math.PI;
+  scene.add(rWall2);
+
+  const rWall3 = new THREE.Mesh(new THREE.PlaneGeometry(skyDepth, recessHeight), recessMat);
+  rWall3.position.set(-skyWidth/2, ROOM.height + recessHeight/2, 0);
+  rWall3.rotation.y = Math.PI/2;
+  scene.add(rWall3);
+
+  const rWall4 = new THREE.Mesh(new THREE.PlaneGeometry(skyDepth, recessHeight), recessMat);
+  rWall4.position.set(skyWidth/2, ROOM.height + recessHeight/2, 0);
+  rWall4.rotation.y = -Math.PI/2;
+  scene.add(rWall4);
+
+  // The Starry Night Sky Plane (at the very top of the recess)
   const skyTex = texLoader.load('images/starry_sky_ai.png');
   skyTex.colorSpace = THREE.SRGBColorSpace;
   skyTex.wrapS = THREE.RepeatWrapping;
   skyTex.wrapT = THREE.RepeatWrapping;
   skyTex.repeat.set(1, 1.5);
-
+  
+  const skyGeo = new THREE.PlaneGeometry(skyWidth, skyDepth);
   const skyMat = new THREE.MeshBasicMaterial({ 
     map: skyTex, 
     transparent: true, 
@@ -299,7 +382,7 @@ function createRoom() {
   });
   const skylight = new THREE.Mesh(skyGeo, skyMat);
   skylight.rotation.x = Math.PI / 2;
-  skylight.position.y = ROOM.height - 0.01;
+  skylight.position.y = ROOM.height + recessHeight - 0.01; 
   scene.add(skylight);
 
   // Atmospheric Dust Particles
@@ -606,6 +689,7 @@ function setupEvents() {
 function setupDesktopEvents() {
   startOverlay.addEventListener('click', (e) => {
     if (e.target.tagName.toLowerCase() === 'input') return;
+    initAudio();
     controls.lock();
   });
 
@@ -659,6 +743,7 @@ function setupMobileEvents() {
   startOverlay.addEventListener('touchstart', (e) => {
     if (e.target.tagName.toLowerCase() === 'input') return;
     e.preventDefault();
+    initAudio();
     startOverlay.classList.add('hidden');
     mobileActive = true;
     joystickZone.style.display = 'block';
@@ -955,11 +1040,16 @@ function animate() {
     camera.position.x = Math.max(-ROOM.width / 2 + margin, Math.min(ROOM.width / 2 - margin, camera.position.x));
     camera.position.z = Math.max(-ROOM.depth / 2 + margin, Math.min(ROOM.depth / 2 - margin, camera.position.z));
     
-    // Head Bobbing
+    // Head Bobbing & Footsteps
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
     if (speed > 1.0) {
+      const prevBob = bobTime;
       bobTime += delta * 12; // bob speed
       camera.position.y = EYE_HEIGHT + Math.sin(bobTime) * 0.06; // bob amplitude
+      
+      if (Math.floor(prevBob / Math.PI) < Math.floor(bobTime / Math.PI)) {
+        playFootstep();
+      }
     } else {
       // Smoothly return to eye height
       camera.position.y += (EYE_HEIGHT - camera.position.y) * 0.1;
