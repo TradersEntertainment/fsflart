@@ -355,15 +355,29 @@ function createRoom() {
   skyTex.repeat.set(3, 3); // More repeats to cover the huge 1.5x room size
   
   const skyGeo = new THREE.PlaneGeometry(skyWidth, skyDepth);
-  const skyMat = new THREE.MeshBasicMaterial({ 
-    map: skyTex, 
-    color: 0xffffff
-  });
   
-  const skylight = new THREE.Mesh(skyGeo, skyMat);
-  skylight.rotation.x = Math.PI / 2;
-  skylight.position.y = ROOM.height + 3.5; // Hanging high above the hole for massive parallax depth
-  scene.add(skylight);
+  // 1. Dark Base Sky (Lowers overall brightness of the clouds/background)
+  const skyMatBase = new THREE.MeshBasicMaterial({ 
+    map: skyTex, 
+    color: 0x444455 // Dark tint to simulate deep night
+  });
+  const skylightBase = new THREE.Mesh(skyGeo, skyMatBase);
+  skylightBase.rotation.x = Math.PI / 2;
+  skylightBase.position.y = ROOM.height + 3.5; 
+  scene.add(skylightBase);
+
+  // 2. Glow Layer (Additive blending to make only the bright stars pop)
+  const skyMatGlow = new THREE.MeshBasicMaterial({ 
+    map: skyTex, 
+    color: 0xffeebb, // Warm tint to enhance yellow stars
+    blending: THREE.AdditiveBlending,
+    transparent: true,
+    opacity: 0.45 // Adjusts how much the stars glow
+  });
+  const skylightGlow = new THREE.Mesh(skyGeo, skyMatGlow);
+  skylightGlow.rotation.x = Math.PI / 2;
+  skylightGlow.position.y = ROOM.height + 3.49; // Slightly below the base
+  scene.add(skylightGlow);
 
   // Atmospheric Dust Particles
   createDust();
