@@ -411,7 +411,7 @@ function createRoom() {
   // 1. Dark Base Sky (Lowers overall brightness of the clouds/background)
   const skyMatBase = new THREE.MeshBasicMaterial({ 
     map: skyTex, 
-    color: 0x444455 // Dark tint to simulate deep night
+    color: 0x22222a // 50% darker tint to simulate much deeper night
   });
   const skylightBase = new THREE.Mesh(skyGeo, skyMatBase);
   skylightBase.rotation.x = Math.PI / 2;
@@ -424,7 +424,7 @@ function createRoom() {
     color: 0xffeebb, // Warm tint to enhance yellow stars
     blending: THREE.AdditiveBlending,
     transparent: true,
-    opacity: 0.45 // Adjusts how much the stars glow
+    opacity: 0.22 // 50% reduced glow
   });
   const skylightGlow = new THREE.Mesh(skyGeo, skyMatGlow);
   skylightGlow.rotation.x = Math.PI / 2;
