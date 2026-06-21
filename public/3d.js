@@ -398,13 +398,13 @@ function createRoom() {
   scene.add(glassPane);
 
   // Massive Starry Night Ceiling (Hanging above the hole)
-  const skyWidth = ROOM.width * 1.5; // Huge sky plane behind the ceiling
-  const skyDepth = ROOM.depth * 1.5;
+  const skyWidth = ROOM.width * 3.0; // Huge sky plane behind the ceiling
+  const skyDepth = ROOM.depth * 3.0;
   const skyTex = texLoader.load('images/starry_sky_ai.png');
   skyTex.colorSpace = THREE.SRGBColorSpace;
   skyTex.wrapS = THREE.MirroredRepeatWrapping;
   skyTex.wrapT = THREE.MirroredRepeatWrapping;
-  skyTex.repeat.set(3, 3); // More repeats to cover the huge 1.5x room size
+  skyTex.repeat.set(6, 6); // More repeats to cover the huge 3.0x room size without losing quality
   
   const skyGeo = new THREE.PlaneGeometry(skyWidth, skyDepth);
   
