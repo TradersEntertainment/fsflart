@@ -318,9 +318,9 @@ function createRoom() {
   // Ceiling with Massive Deep Recessed Skylight
   const ceilMat = new THREE.MeshStandardMaterial({ color: CEILING_COLOR, roughness: 0.9 });
   
-  // Make the hole huge (90% of the room) so it covers almost everywhere, but keeps the deep frame
-  const skyWidth = Math.max(10, ROOM.width * 0.9);
-  const skyDepth = Math.max(16, ROOM.depth * 0.9);
+  // Make the hole smaller (about 35-40% of the room) for a more realistic skylight feel
+  const skyWidth = ROOM.width * 0.40;
+  const skyDepth = ROOM.depth * 0.40;
 
   // 4 pieces to create a hole in the main ceiling
   const ceilZLen = (ROOM.depth - skyDepth) / 2;
