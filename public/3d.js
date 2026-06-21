@@ -284,6 +284,41 @@ function addPaintingSpotlight(x, y, z, targetX, targetZ) {
   }
 }
 
+// ─── Minecraft Glass Texture Generator ─────────────
+function createMinecraftGlassTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const ctx = canvas.getContext('2d');
+
+  // Semi-transparent base
+  ctx.fillStyle = 'rgba(180, 220, 255, 0.15)';
+  ctx.fillRect(0, 0, 16, 16);
+
+  // Borders (light cyan)
+  ctx.fillStyle = 'rgba(210, 240, 255, 0.7)';
+  ctx.fillRect(0, 0, 16, 1); // top
+  ctx.fillRect(0, 15, 16, 1); // bottom
+  ctx.fillRect(0, 0, 1, 16); // left
+  ctx.fillRect(15, 0, 1, 16); // right
+
+  // Diagonal streaks (classic Minecraft glass look)
+  ctx.fillStyle = 'rgba(230, 250, 255, 0.6)';
+  // Main streak
+  for(let i=0; i<4; i++) ctx.fillRect(2+i, 4+i, 2, 2);
+  for(let i=0; i<3; i++) ctx.fillRect(9+i, 11+i, 2, 2);
+  // Minor streak
+  ctx.fillRect(11, 3, 2, 2);
+  ctx.fillRect(13, 5, 2, 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.magFilter = THREE.NearestFilter; // Sharp pixel edges!
+  tex.minFilter = THREE.NearestFilter;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 // ─── Room ──────────────────────────────────────────
 function createRoom() {
   const texLoader = new THREE.TextureLoader();
@@ -345,34 +380,22 @@ function createRoom() {
   ceil4.position.set(ROOM.width/2 - ceilXLen/2, ROOM.height, 0);
   scene.add(ceil4);
 
-  // ─── Skylight Glass & Grid ───
+  // ─── Skylight Glass (Minecraft Style) ───
+  const mcGlassTex = createMinecraftGlassTexture();
+  // Each block is 1.5 units wide
+  mcGlassTex.repeat.set(Math.ceil(holeWidth / 1.5), Math.ceil(holeDepth / 1.5));
+
   const glassGeo = new THREE.PlaneGeometry(holeWidth, holeDepth);
-  const glassMat = new THREE.MeshStandardMaterial({
-    color: 0x88aaff,
-    metalness: 0.9,
-    roughness: 0.1,
+  const glassMat = new THREE.MeshBasicMaterial({
+    map: mcGlassTex,
     transparent: true,
-    opacity: 0.15,
+    opacity: 0.9, // Almost fully visible lines, base is 0.15 alpha
     side: THREE.DoubleSide
   });
   const glassPane = new THREE.Mesh(glassGeo, glassMat);
   glassPane.rotation.x = Math.PI / 2;
   glassPane.position.y = ROOM.height;
   scene.add(glassPane);
-
-  const gridMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
-  const gridThickness = 0.08;
-  const gridDepth = 0.15;
-  
-  // Crossbar X
-  const barX = new THREE.Mesh(new THREE.BoxGeometry(holeWidth, gridDepth, gridThickness), gridMat);
-  barX.position.set(0, ROOM.height, 0);
-  scene.add(barX);
-  
-  // Crossbar Z
-  const barZ = new THREE.Mesh(new THREE.BoxGeometry(gridThickness, gridDepth, holeDepth), gridMat);
-  barZ.position.set(0, ROOM.height, 0);
-  scene.add(barZ);
 
   // Massive Starry Night Ceiling (Hanging above the hole)
   const skyWidth = ROOM.width * 1.5; // Huge sky plane behind the ceiling
