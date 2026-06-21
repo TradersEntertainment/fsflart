@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const { Server } = require('socket.io');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const server = http.createServer(app);
@@ -184,8 +185,17 @@ function authMiddleware(req, res, next) {
 
 // ─── API Routes ─────────────────────────────────────
 
+// Brute-force protection for login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login requests per windowMs
+  message: { error: 'Çok fazla hatalı giriş denemesi yaptınız. Lütfen 15 dakika sonra tekrar deneyin.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Login
-app.post('/api/login', (req, res) => {
+app.post('/api/login', loginLimiter, (req, res) => {
   const { password } = req.body;
   if (password === ADMIN_PASSWORD) {
     const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
