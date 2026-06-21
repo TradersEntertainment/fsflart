@@ -558,11 +558,12 @@ function setupDesktopEvents() {
     }
   });
 
-  renderer.domElement.addEventListener('click', () => {
+  renderer.domElement.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return; // Only left click
     if (!controls.isLocked) return;
     raycaster.setFromCamera(pointer, camera);
     const intersects = raycaster.intersectObjects(paintingMeshes);
-    if (intersects.length > 0 && intersects[0].distance < 15) {
+    if (intersects.length > 0 && intersects[0].distance < 25) {
       const artwork = intersects[0].object.userData.artwork;
       if (artwork) showArtworkPanel(artwork);
     }
