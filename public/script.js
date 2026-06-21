@@ -441,6 +441,7 @@ if (subForm) {
     formData.append('technique', technique);
     formData.append('techniqueLabel', TECHNIQUE_MAP[technique] || technique);
     formData.append('dimensions', document.getElementById('sub-dimensions').value);
+    formData.append('exhibition', document.getElementById('sub-exhibition').value);
     formData.append('description', document.getElementById('sub-description').value);
 
     // Append all image slots
