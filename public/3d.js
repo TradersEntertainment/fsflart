@@ -196,11 +196,20 @@ async function init() {
   }
 
   // Renderer
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  const useAntialias = !isMobile;
+  renderer = new THREE.WebGLRenderer({ antialias: useAntialias, powerPreference: "high-performance" });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  
+  // Düşük donanımlı telefonlar/cihazlar için pixelRatio'yu 1.0 ile sınırlayarak performansı çok ciddi oranda artırıyoruz
+  const maxPixelRatio = isMobile ? 1.0 : Math.min(window.devicePixelRatio, 2);
+  renderer.setPixelRatio(maxPixelRatio);
+  
+  // Dinamik gölgeler (shadow map) telefonda en çok yoran şeydir. Mobilde kapattık.
+  renderer.shadowMap.enabled = !isMobile;
+  if (!isMobile) {
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  }
+  
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.9;
   document.body.appendChild(renderer.domElement);
