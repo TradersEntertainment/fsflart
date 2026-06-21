@@ -487,8 +487,8 @@ function setupEvents() {
     panel.classList.remove('open');
     if (isMobile) {
       mobileActive = true;
-      joystickZone.style.display = '';
-      mobileHint.style.display = '';
+      joystickZone.style.display = 'block';
+      mobileHint.style.display = 'block';
     } else {
       controls.lock();
     }
@@ -556,8 +556,8 @@ function setupMobileEvents() {
     e.preventDefault();
     startOverlay.classList.add('hidden');
     mobileActive = true;
-    joystickZone.style.display = '';
-    mobileHint.style.display = '';
+    joystickZone.style.display = 'block';
+    mobileHint.style.display = 'block';
     euler.setFromQuaternion(camera.quaternion);
   });
 
@@ -684,17 +684,129 @@ function setupMobileEvents() {
   }, { passive: true });
 }
 
+let currentSlide = 0;
+let totalSlides = 0;
+
 function showArtworkPanel(artwork) {
   if (!isMobile) controls.unlock();
   document.getElementById('panel-overline').textContent = artwork.techniqueLabel || '';
   document.getElementById('panel-title').textContent = artwork.title;
   document.getElementById('panel-artist').textContent = `${artwork.artist} · ${artwork.grade}`;
-  document.getElementById('panel-image').src = artwork.image;
   document.getElementById('panel-technique').textContent = artwork.techniqueLabel || '';
   document.getElementById('panel-dimensions').textContent = artwork.dimensions || '';
   document.getElementById('panel-desc').textContent = artwork.description || '';
+  
+  // Setup Carousel
+  const track = document.getElementById('carousel-track');
+  const dotsContainer = document.getElementById('carousel-dots');
+  
+  // Gather images
+  const images = [];
+  if (artwork.image) images.push(artwork.image);
+  if (artwork.image2) images.push(artwork.image2);
+  if (artwork.image3) images.push(artwork.image3);
+  
+  totalSlides = images.length;
+  currentSlide = 0;
+  
+  track.innerHTML = images.map(src => `<div class="carousel-slide"><img src="${src}" alt="" /></div>`).join('');
+  
+  if (totalSlides > 1) {
+    dotsContainer.innerHTML = images.map((_, i) => `<div class="dot ${i === 0 ? 'active' : ''}"></div>`).join('');
+    dotsContainer.style.display = 'flex';
+  } else {
+    dotsContainer.style.display = 'none';
+  }
+  
+  updateCarousel();
+  
+  // Reset sheet visibility
+  document.getElementById('panel-content').classList.remove('hidden');
+  
+  // Show hint briefly
+  const hint = document.getElementById('carousel-hint');
+  if (hint) {
+    hint.style.opacity = '1';
+    setTimeout(() => { hint.style.opacity = '0'; }, 3000);
+  }
+  
   panel.classList.add('open');
 }
+
+function updateCarousel() {
+  const track = document.getElementById('carousel-track');
+  track.style.transform = `translateX(-${currentSlide * 100}%)`;
+  
+  const dots = document.querySelectorAll('.dot');
+  dots.forEach((dot, i) => {
+    dot.classList.toggle('active', i === currentSlide);
+  });
+}
+
+// Carousel Interactions (Swipe & Click)
+const carouselContainer = document.getElementById('carousel-container');
+let swipeStartX = 0;
+let swipeCurrentX = 0;
+let isSwiping = false;
+
+carouselContainer.addEventListener('touchstart', (e) => {
+  swipeStartX = e.touches[0].clientX;
+  isSwiping = true;
+});
+
+carouselContainer.addEventListener('touchmove', (e) => {
+  if (!isSwiping) return;
+  swipeCurrentX = e.touches[0].clientX;
+});
+
+carouselContainer.addEventListener('touchend', (e) => {
+  if (!isSwiping) return;
+  isSwiping = false;
+  const diffX = swipeStartX - (swipeCurrentX || swipeStartX);
+  
+  if (Math.abs(diffX) > 50) {
+    // Swipe
+    if (diffX > 0 && currentSlide < totalSlides - 1) {
+      currentSlide++; // swipe left
+    } else if (diffX < 0 && currentSlide > 0) {
+      currentSlide--; // swipe right
+    }
+    updateCarousel();
+  } else if (Math.abs(diffX) < 10) {
+    // Tap -> toggle bottom sheet
+    document.getElementById('panel-content').classList.toggle('hidden');
+  }
+  swipeCurrentX = 0;
+});
+
+carouselContainer.addEventListener('mousedown', (e) => {
+  swipeStartX = e.clientX;
+  isSwiping = true;
+});
+
+carouselContainer.addEventListener('mousemove', (e) => {
+  if (!isSwiping) return;
+  swipeCurrentX = e.clientX;
+});
+
+carouselContainer.addEventListener('mouseup', (e) => {
+  if (!isSwiping) return;
+  isSwiping = false;
+  const diffX = swipeStartX - (swipeCurrentX || swipeStartX);
+  
+  if (Math.abs(diffX) > 50) {
+    if (diffX > 0 && currentSlide < totalSlides - 1) {
+      currentSlide++;
+    } else if (diffX < 0 && currentSlide > 0) {
+      currentSlide--;
+    }
+    updateCarousel();
+  } else if (Math.abs(diffX) < 10) {
+    document.getElementById('panel-content').classList.toggle('hidden');
+  }
+  swipeCurrentX = 0;
+});
+
 
 // ─── Animation Loop ────────────────────────────────
 function animate() {
