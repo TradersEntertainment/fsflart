@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sanal Tur — Fırça İzleri Sergisi</title>
+  <meta name="description" content="Fuat Sezgin Fen Lisesi resim sergisini 3D sanal turla keşfedin." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #0c0b0d; font-family: 'Inter', sans-serif; }
+    canvas { display: block; }
+
+    /* Loading Screen */
+    #loading-screen {
+      position: fixed; inset: 0; z-index: 100;
+      background: #0c0b0d;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px; color: #f5f0e8;
+      transition: opacity 0.6s ease;
+    }
+    #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+    .loading-title { font-family: 'Playfair Display', serif; font-size: 2rem; }
+    .loading-title em { color: #c9a96e; font-style: italic; }
+    .loading-bar-track { width: 200px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; }
+    .loading-bar-fill { height: 100%; background: #c9a96e; border-radius: 2px; width: 0%; transition: width 0.3s; }
+    .loading-text { font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+
+    /* Start Overlay */
+    #start-overlay {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(12,11,13,0.85);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; color: #f5f0e8; cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+    #start-overlay.hidden { display: none; }
+    .start-title { font-family: 'Playfair Display', serif; font-size: 1.8rem; }
+    .start-subtitle { font-size: 0.85rem; color: rgba(255,255,255,0.5); }
+    .start-keys { display: flex; gap: 6px; margin-top: 8px; }
+    .key { display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border: 1px solid rgba(201,169,110,0.4);
+      border-radius: 6px; font-size: 0.75rem; font-weight: 600; color: #c9a96e; }
+    .start-click { font-size: 0.72rem; color: #c9a96e; letter-spacing: 0.15em; text-transform: uppercase; margin-top: 12px; animation: pulse 2s ease infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* HUD */
+    #hud {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      z-index: 30; display: flex; gap: 12px; align-items: center;
+      background: rgba(12,11,13,0.7); backdrop-filter: blur(8px);
+      padding: 10px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.72rem; color: rgba(255,255,255,0.4);
+    }
+    #hud .hud-keys { display: flex; gap: 4px; }
+    #hud .key { width: 24px; height: 24px; font-size: 0.6rem; }
+    .crosshair {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 20px; height: 20px; z-index: 20; pointer-events: none; opacity: 0.4;
+    }
+    .crosshair::before, .crosshair::after {
+      content: ''; position: absolute; background: #c9a96e;
+    }
+    .crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+    .crosshair::after { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
+
+    /* Artwork Info Panel */
+    #artwork-panel {
+      position: fixed; right: -400px; top: 0; bottom: 0; width: 380px; z-index: 40;
+      background: rgba(12,11,13,0.95); backdrop-filter: blur(12px);
+      border-left: 1px solid rgba(201,169,110,0.2);
+      padding: 40px 28px; overflow-y: auto;
+      transition: right 0.4s cubic-bezier(0.4,0,0.2,1);
+      color: #f5f0e8;
+    }
+    #artwork-panel.open { right: 0; }
+    .panel-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.5rem; cursor: pointer; }
+    .panel-close:hover { color: #c9a96e; }
+    .panel-overline { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: #c9a96e; margin-bottom: 8px; }
+    .panel-title { font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 6px; }
+    .panel-artist { font-size: 0.88rem; color: rgba(255,255,255,0.5); font-style: italic; margin-bottom: 20px; }
+    .panel-image { width: 100%; border-radius: 4px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.08); }
+    .panel-meta { display: flex; gap: 16px; margin-bottom: 20px; font-size: 0.78rem; color: rgba(255,255,255,0.4); }
+    .panel-desc { font-size: 0.85rem; line-height: 1.7; color: rgba(255,255,255,0.65); }
+
+    /* Back link */
+    #back-link {
+      position: fixed; top: 20px; left: 20px; z-index: 30;
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.75rem; color: rgba(255,255,255,0.4);
+      text-decoration: none; letter-spacing: 0.1em;
+      transition: color 0.2s;
+    }
+    #back-link:hover { color: #c9a96e; }
+
+    @media (max-width: 600px) {
+      #artwork-panel { width: 100%; right: -100%; }
+      .start-title { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading -->
+  <div id="loading-screen">
+    <div class="loading-title">Fırça <em>İzleri</em></div>
+    <div class="loading-bar-track"><div class="loading-bar-fill" id="loading-fill"></div></div>
+    <div class="loading-text" id="loading-text">Galeri hazırlanıyor…</div>
+  </div>
+
+  <!-- Start Overlay -->
+  <div id="start-overlay" class="hidden">
+    <div class="start-title">Sanal Galeri</div>
+    <div class="start-subtitle">Eserlerin arasında yürüyün ve keşfedin</div>
+    <div class="start-keys">
+      <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span>
+    </div>
+    <div class="start-click">Tıklayarak başlayın</div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" style="display:none;">
+    <div class="hud-keys"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span></div>
+    <span>Hareket</span>
+    <span style="opacity:0.2">|</span>
+    <span>Fare: Bakış</span>
+    <span style="opacity:0.2">|</span>
+    <span>Tıkla: Eser detayı</span>
+    <span style="opacity:0.2">|</span>
+    <span>ESC: Çıkış</span>
+  </div>
+
+  <!-- Crosshair -->
+  <div class="crosshair" id="crosshair" style="display:none;"></div>
+
+  <!-- Back Link -->
+  <a href="/" id="back-link">← Ana Sayfa</a>
+
+  <!-- Artwork Info Panel -->
+  <div id="artwork-panel">
+    <button class="panel-close" id="panel-close">✕</button>
+    <div class="panel-overline" id="panel-overline"></div>
+    <h2 class="panel-title" id="panel-title"></h2>
+    <p class="panel-artist" id="panel-artist"></p>
+    <img class="panel-image" id="panel-image" alt="" />
+    <div class="panel-meta">
+      <span id="panel-technique"></span>
+      <span id="panel-dimensions"></span>
+    </div>
+    <p class="panel-desc" id="panel-desc"></p>
+  </div>
+
+  <!-- Three.js -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="3d.js"></script>
+</body>
+</html>

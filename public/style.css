@@ -571,6 +571,34 @@ ul, ol {
   transform: translateX(3px);
 }
 
+.hero-cta-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xl);
+  flex-wrap: wrap;
+}
+
+.hero-cta-group .hero-cta {
+  margin-bottom: 0;
+}
+
+.hero-cta--secondary {
+  background: transparent;
+  color: var(--color-accent);
+  border: 1px solid rgba(201, 169, 110, 0.4);
+}
+
+.hero-cta--secondary:hover {
+  background: rgba(201, 169, 110, 0.1);
+  border-color: var(--color-accent);
+}
+
+.hero-cta--secondary::before {
+  display: none;
+}
+
 .hero-subtitle {
   font-family: var(--font-accent);
   font-size: clamp(1.1rem, 2.2vw, 1.45rem);
