@@ -95,7 +95,7 @@ let playerAnimations = null;
 
 function loadPlayerModel() {
   const loader = new GLTFLoader();
-  loader.load('assets/Soldier.glb', (gltf) => {
+  loader.load('assets/Robot.glb', (gltf) => {
     sharedPlayerModel = gltf.scene;
     playerAnimations = gltf.animations;
     
@@ -104,12 +104,11 @@ function loadPlayerModel() {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
-        // make sure material is simple enough
       }
     });
     
-    // Scale Soldier up or down as needed (Soldier is usually ~1 unit tall, we want ~1.6m)
-    sharedPlayerModel.scale.set(1.1, 1.1, 1.1);
+    // Scale Robot up as needed
+    sharedPlayerModel.scale.set(0.4, 0.4, 0.4);
   });
 }
 
@@ -1080,7 +1079,7 @@ function addPlayer(data) {
       mixer = new THREE.AnimationMixer(clone);
       
       const idleClip = THREE.AnimationClip.findByName(playerAnimations, 'Idle');
-      const walkClip = THREE.AnimationClip.findByName(playerAnimations, 'Walk') || THREE.AnimationClip.findByName(playerAnimations, 'Run');
+      const walkClip = THREE.AnimationClip.findByName(playerAnimations, 'Walking') || THREE.AnimationClip.findByName(playerAnimations, 'Walk') || THREE.AnimationClip.findByName(playerAnimations, 'Run');
       
       if (idleClip) actionIdle = mixer.clipAction(idleClip);
       if (walkClip) actionWalk = mixer.clipAction(walkClip);
