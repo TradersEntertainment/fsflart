@@ -96,6 +96,12 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
+const submissionUpload = upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'image2', maxCount: 1 },
+  { name: 'image3', maxCount: 1 },
+]);
+
 // ─── Data Helpers ───────────────────────────────────
 function readArtworks() {
   try {
@@ -325,11 +331,6 @@ app.delete('/api/artworks/:id', authMiddleware, (req, res) => {
 // ─── Submissions API ────────────────────────────────
 
 // Submit artwork application (public — no auth required)
-const submissionUpload = upload.fields([
-  { name: 'image', maxCount: 1 },
-  { name: 'image2', maxCount: 1 },
-  { name: 'image3', maxCount: 1 },
-]);
 
 app.post('/api/submissions', submissionUpload, (req, res) => {
   try {
