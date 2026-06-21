@@ -357,13 +357,8 @@ if (quoteRotator) {
   setInterval(rotateQuote, 5000);
 }
 
-// ─── Submission Form ────────────────────────────────
+// ─── Submission Form (Multi-Image) ──────────────────
 const subForm = document.getElementById('submission-form');
-const subUploadZone = document.getElementById('sub-upload-zone');
-const subImageInput = document.getElementById('sub-image');
-const subPreview = document.getElementById('sub-preview');
-const subPreviewImg = document.getElementById('sub-preview-img');
-const subPreviewRemove = document.getElementById('sub-preview-remove');
 const subSuccess = document.getElementById('sub-success');
 const subSubmitBtn = document.getElementById('sub-submit-btn');
 
@@ -375,54 +370,64 @@ const TECHNIQUE_MAP = {
   murekkep: 'Mürekkep',
 };
 
-if (subForm && subUploadZone) {
-  // Click to upload
-  subUploadZone.addEventListener('click', () => subImageInput.click());
+if (subForm) {
+  // Setup each upload slot (1, 2, 3)
+  [1, 2, 3].forEach((slot) => {
+    const zone = document.getElementById(`sub-upload-zone-${slot}`);
+    const input = document.getElementById(`sub-image-${slot}`);
+    const preview = document.getElementById(`sub-preview-${slot}`);
+    const previewImg = document.getElementById(`sub-preview-img-${slot}`);
+    const clearBtn = document.querySelector(`[data-clear="${slot}"]`);
 
-  // Drag and drop
-  subUploadZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    subUploadZone.classList.add('dragover');
-  });
-  subUploadZone.addEventListener('dragleave', () => {
-    subUploadZone.classList.remove('dragover');
-  });
-  subUploadZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    subUploadZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length) {
-      subImageInput.files = e.dataTransfer.files;
-      showPreview(e.dataTransfer.files[0]);
+    if (!zone || !input) return;
+
+    // Click to upload
+    zone.addEventListener('click', () => input.click());
+
+    // Drag and drop
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        input.files = e.dataTransfer.files;
+        showSlotPreview(slot, e.dataTransfer.files[0]);
+      }
+    });
+
+    // File change
+    input.addEventListener('change', () => {
+      if (input.files.length) showSlotPreview(slot, input.files[0]);
+    });
+
+    // Clear
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        preview.classList.add('hidden');
+        zone.style.display = '';
+        input.value = '';
+      });
     }
   });
 
-  // File input change
-  subImageInput.addEventListener('change', () => {
-    if (subImageInput.files.length) {
-      showPreview(subImageInput.files[0]);
-    }
-  });
-
-  function showPreview(file) {
+  function showSlotPreview(slot, file) {
+    const zone = document.getElementById(`sub-upload-zone-${slot}`);
+    const preview = document.getElementById(`sub-preview-${slot}`);
+    const img = document.getElementById(`sub-preview-img-${slot}`);
     const reader = new FileReader();
     reader.onload = (e) => {
-      subPreviewImg.src = e.target.result;
-      subPreview.classList.remove('hidden');
-      subUploadZone.style.display = 'none';
+      img.src = e.target.result;
+      preview.classList.remove('hidden');
+      zone.style.display = 'none';
     };
     reader.readAsDataURL(file);
   }
 
-  // Remove preview
-  if (subPreviewRemove) {
-    subPreviewRemove.addEventListener('click', () => {
-      subPreview.classList.add('hidden');
-      subUploadZone.style.display = '';
-      subImageInput.value = '';
-    });
-  }
-
-  // Submit form
+  // Submit
   subForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     subSubmitBtn.disabled = true;
@@ -437,9 +442,14 @@ if (subForm && subUploadZone) {
     formData.append('techniqueLabel', TECHNIQUE_MAP[technique] || technique);
     formData.append('dimensions', document.getElementById('sub-dimensions').value);
     formData.append('description', document.getElementById('sub-description').value);
-    if (subImageInput.files.length) {
-      formData.append('image', subImageInput.files[0]);
-    }
+
+    // Append all image slots
+    const img1 = document.getElementById('sub-image-1');
+    const img2 = document.getElementById('sub-image-2');
+    const img3 = document.getElementById('sub-image-3');
+    if (img1?.files.length) formData.append('image', img1.files[0]);
+    if (img2?.files.length) formData.append('image2', img2.files[0]);
+    if (img3?.files.length) formData.append('image3', img3.files[0]);
 
     try {
       const res = await fetch('/api/submissions', {
@@ -449,7 +459,7 @@ if (subForm && subUploadZone) {
       if (!res.ok) throw new Error('Sunucu hatası');
 
       // Show success
-      subForm.querySelectorAll('.form-row, .form-group, .btn-submit').forEach((el) => {
+      subForm.querySelectorAll('.form-row, .form-group, .form-group--full, .btn-submit').forEach((el) => {
         el.style.display = 'none';
       });
       subSuccess.classList.remove('hidden');
@@ -460,3 +470,4 @@ if (subForm && subUploadZone) {
     }
   });
 }
+

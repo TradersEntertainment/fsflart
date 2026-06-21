@@ -313,9 +313,16 @@ app.delete('/api/artworks/:id', authMiddleware, (req, res) => {
 // ─── Submissions API ────────────────────────────────
 
 // Submit artwork application (public — no auth required)
-app.post('/api/submissions', upload.single('image'), (req, res) => {
+const submissionUpload = upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'image2', maxCount: 1 },
+  { name: 'image3', maxCount: 1 },
+]);
+
+app.post('/api/submissions', submissionUpload, (req, res) => {
   try {
     const subs = readSubmissions();
+    const files = req.files || {};
     const newSub = {
       id: getNextSubmissionId(subs),
       title: req.body.title || 'İsimsiz Eser',
@@ -325,7 +332,9 @@ app.post('/api/submissions', upload.single('image'), (req, res) => {
       techniqueLabel: req.body.techniqueLabel || 'Yağlı Boya',
       dimensions: req.body.dimensions || '',
       description: req.body.description || '',
-      image: req.file ? `images/${req.file.filename}` : '',
+      image: files.image?.[0] ? `images/${files.image[0].filename}` : '',
+      image2: files.image2?.[0] ? `images/${files.image2[0].filename}` : '',
+      image3: files.image3?.[0] ? `images/${files.image3[0].filename}` : '',
       submittedAt: new Date().toISOString(),
       status: 'pending',
     };
