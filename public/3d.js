@@ -6,13 +6,13 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 // ─── Config ────────────────────────────────────────
-const ROOM = { width: 28, height: 5, depth: 40 };
+const ROOM = { width: 28, height: 5, depth: 40 }; // will be recalculated
 const WALL_COLOR = 0xf5f0e8;
 const FLOOR_COLOR = 0x3d2b1f;
 const CEILING_COLOR = 0xe8e0d0;
 const FRAME_COLOR = 0x2c1a0a;
 const PAINTING_HEIGHT = 1.8;
-const PAINTING_SPACING = 5.5;
+const PAINTING_SPACING = 4.5;
 const WALK_SPEED = 5;
 const EYE_HEIGHT = 1.65;
 
@@ -54,6 +54,24 @@ const joystickKnob = document.getElementById('joystick-knob');
 const joystickBase = document.getElementById('joystick-base');
 const mobileHint = document.getElementById('mobile-hint');
 
+// ─── Room Size Calculator ──────────────────────────
+function calculateRoom(count) {
+  // Distribute: left wall, right wall, back wall
+  // Back wall gets fewer since it's shorter (width-based)
+  const backWallCapacity = Math.max(1, Math.floor((ROOM.width - 4) / PAINTING_SPACING));
+  const backCount = Math.min(backWallCapacity, Math.max(0, count - 2));
+  const sideCount = count - backCount;
+  const perSide = Math.ceil(sideCount / 2);
+
+  // Room depth = enough for side wall paintings
+  const neededDepth = Math.max(15, (perSide + 1) * PAINTING_SPACING + 4);
+  ROOM.depth = Math.min(60, neededDepth);
+
+  // Room width = enough for back wall paintings (min 18)
+  const neededWidth = Math.max(18, (backCount + 1) * PAINTING_SPACING + 4);
+  ROOM.width = Math.min(40, neededWidth);
+}
+
 // ─── Init ──────────────────────────────────────────
 async function init() {
   // Fetch artworks
@@ -64,12 +82,15 @@ async function init() {
     artworks = [];
   }
 
+  // Dynamic room sizing
+  calculateRoom(artworks.length);
+
   updateLoading(10, 'Sahne oluşturuluyor…');
 
   // Scene
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a1a1a);
-  scene.fog = new THREE.FogExp2(0x1a1a1a, 0.015);
+  scene.fog = new THREE.FogExp2(0x1a1a1a, 0.012);
 
   // Camera
   camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -217,17 +238,52 @@ function createRoom() {
 async function createPaintings() {
   const loader = new THREE.TextureLoader();
   const count = artworks.length;
-  const halfCount = Math.ceil(count / 2);
+  if (count === 0) return;
 
-  for (let i = 0; i < count; i++) {
-    const artwork = artworks[i];
-    const isLeft = i < halfCount;
-    const idx = isLeft ? i : i - halfCount;
-    const totalOnSide = isLeft ? halfCount : count - halfCount;
+  // ── Wall assignment plan ──
+  // Walls: 'left' (depth-axis), 'right' (depth-axis), 'back' (width-axis)
+  const backWallCapacity = Math.max(1, Math.floor((ROOM.width - 4) / PAINTING_SPACING));
+  const sideWallCapacity = Math.max(1, Math.floor((ROOM.depth - 4) / PAINTING_SPACING));
 
-    // Distribute evenly
-    const startZ = -(totalOnSide - 1) * PAINTING_SPACING / 2;
-    const z = startZ + idx * PAINTING_SPACING;
+  // Smart distribution: fill all 3 walls evenly
+  let leftCount, rightCount, backCount;
+  if (count <= 2) {
+    leftCount = 1;
+    rightCount = count > 1 ? 1 : 0;
+    backCount = 0;
+  } else if (count <= 4) {
+    backCount = 1;
+    leftCount = Math.ceil((count - 1) / 2);
+    rightCount = count - 1 - leftCount;
+  } else {
+    // 3-wall distribution
+    backCount = Math.min(backWallCapacity, Math.max(1, Math.floor(count / 3)));
+    const sideTotal = count - backCount;
+    leftCount = Math.ceil(sideTotal / 2);
+    rightCount = sideTotal - leftCount;
+  }
+
+  // Build placement list: { wall, index, total }
+  const placements = [];
+  let artIdx = 0;
+
+  // Left wall
+  for (let i = 0; i < leftCount; i++) {
+    placements.push({ wall: 'left', idx: i, total: leftCount, artIdx: artIdx++ });
+  }
+  // Right wall
+  for (let i = 0; i < rightCount; i++) {
+    placements.push({ wall: 'right', idx: i, total: rightCount, artIdx: artIdx++ });
+  }
+  // Back wall
+  for (let i = 0; i < backCount; i++) {
+    placements.push({ wall: 'back', idx: i, total: backCount, artIdx: artIdx++ });
+  }
+
+  // ── Place each painting ──
+  for (const p of placements) {
+    const artwork = artworks[p.artIdx];
+    if (!artwork) continue;
 
     await new Promise((resolve) => {
       loader.load(
@@ -259,14 +315,25 @@ async function createPaintings() {
           // Name plate
           createNamePlate(group, artwork, pw);
 
-          if (isLeft) {
+          // ── Position based on wall ──
+          if (p.wall === 'left') {
+            const startZ = -(p.total - 1) * PAINTING_SPACING / 2;
+            const z = startZ + p.idx * PAINTING_SPACING;
             group.position.set(-ROOM.width / 2 + 0.05, EYE_HEIGHT + 0.2, z);
             group.rotation.y = Math.PI / 2;
             addPaintingSpotlight(-ROOM.width / 2 + 2, ROOM.height - 0.3, z, -ROOM.width / 2, z);
-          } else {
+          } else if (p.wall === 'right') {
+            const startZ = -(p.total - 1) * PAINTING_SPACING / 2;
+            const z = startZ + p.idx * PAINTING_SPACING;
             group.position.set(ROOM.width / 2 - 0.05, EYE_HEIGHT + 0.2, z);
             group.rotation.y = -Math.PI / 2;
             addPaintingSpotlight(ROOM.width / 2 - 2, ROOM.height - 0.3, z, ROOM.width / 2, z);
+          } else if (p.wall === 'back') {
+            const startX = -(p.total - 1) * PAINTING_SPACING / 2;
+            const x = startX + p.idx * PAINTING_SPACING;
+            group.position.set(x, EYE_HEIGHT + 0.2, -ROOM.depth / 2 + 0.05);
+            group.rotation.y = 0;
+            addPaintingSpotlight(x, ROOM.height - 0.3, -ROOM.depth / 2 + 2, x, -ROOM.depth / 2);
           }
 
           scene.add(group);
@@ -275,11 +342,11 @@ async function createPaintings() {
           canvasMesh.userData = { artworkId: artwork.id, artwork };
           paintingMeshes.push(canvasMesh);
 
-          updateLoading(50 + Math.round(40 * (i + 1) / count), `Eser asılıyor: ${i + 1}/${count}`);
+          updateLoading(50 + Math.round(40 * (p.artIdx + 1) / count), `Eser asılıyor: ${p.artIdx + 1}/${count}`);
           resolve();
         },
         undefined,
-        () => resolve() // skip failed loads
+        () => resolve()
       );
     });
   }
