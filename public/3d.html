@@ -82,12 +82,15 @@
     }
     #artwork-panel.open { right: 0; }
     
+    .panel-meta-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; gap: 16px; }
+    .panel-meta-left { flex: 1; }
+    
     .panel-close { 
-      position: absolute; top: 16px; right: 16px; z-index: 10;
-      width: 40px; height: 40px; border-radius: 50%;
-      background: rgba(12,11,13,0.6); backdrop-filter: blur(8px);
-      border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 1.2rem; cursor: pointer; 
+      background: rgba(201,169,110,0.15); border: 1px solid rgba(201,169,110,0.5); 
+      color: #c9a96e; font-size: 0.7rem; font-family: 'Inter', sans-serif; letter-spacing: 0.05em; 
+      padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
     }
+    .panel-close:hover { background: rgba(201,169,110,0.3); color: #fff; }
     
     .carousel-container {
       position: relative; flex: 1; width: 100%; background: #000; overflow: hidden;
@@ -122,8 +125,8 @@
     
     .panel-overline { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: #c9a96e; margin-bottom: 8px; }
     .panel-title { font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 6px; }
-    .panel-artist { font-size: 0.88rem; color: rgba(255,255,255,0.5); font-style: italic; margin-bottom: 20px; }
-    .panel-meta { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; font-size: 0.78rem; color: rgba(255,255,255,0.4); }
+    .panel-artist { font-size: 0.88rem; color: rgba(255,255,255,0.5); font-style: italic; margin-bottom: 8px; }
+    .panel-meta { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.78rem; color: rgba(255,255,255,0.4); }
     .panel-desc { font-size: 0.85rem; line-height: 1.7; color: rgba(255,255,255,0.8); }
 
     /* Back link */
@@ -258,14 +261,20 @@
     </div>
 
     <div class="panel-content" id="panel-content">
-      <button class="panel-close" id="panel-close">✕</button>
       <div class="panel-overline" id="panel-overline"></div>
       <h2 class="panel-title" id="panel-title"></h2>
-      <p class="panel-artist" id="panel-artist"></p>
-      <div class="panel-meta">
-        <span id="panel-technique"></span>
-        <span id="panel-dimensions"></span>
+      
+      <div class="panel-meta-row">
+        <div class="panel-meta-left">
+          <p class="panel-artist" id="panel-artist"></p>
+          <div class="panel-meta">
+            <span id="panel-technique"></span>
+            <span id="panel-dimensions"></span>
+          </div>
+        </div>
+        <button class="panel-close" id="panel-close">RESMİ KAPAT</button>
       </div>
+
       <p class="panel-desc" id="panel-desc"></p>
     </div>
   </div>
