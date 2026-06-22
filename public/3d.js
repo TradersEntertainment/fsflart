@@ -96,6 +96,7 @@ const startOverlay = document.getElementById('start-overlay');
 const hud = document.getElementById('hud');
 const crosshair = document.getElementById('crosshair');
 const panel = document.getElementById('artwork-panel');
+const backdrop = document.getElementById('artwork-backdrop');
 const joystickZone = document.getElementById('joystick-zone');
 const joystickKnob = document.getElementById('joystick-knob');
 const joystickBase = document.getElementById('joystick-base');
@@ -755,8 +756,9 @@ function setupEvents() {
   // Close panel (shared)
   const closeBtn = document.getElementById('panel-close');
   const handleClose = (e) => {
-    if (e.type === 'touchstart') e.preventDefault(); // Çift tetiklemeyi önlemek için
+    if (e.type === 'touchstart') e.preventDefault();
     panel.classList.remove('open');
+    backdrop.classList.remove('open');
     if (isMobile) {
       mobileActive = true;
       joystickZone.style.display = 'block';
@@ -767,6 +769,7 @@ function setupEvents() {
   };
   closeBtn.addEventListener('click', handleClose);
   closeBtn.addEventListener('touchstart', handleClose, { passive: false });
+  backdrop.addEventListener('click', handleClose);
 
   // Resize (shared)
   window.addEventListener('resize', () => {
@@ -1023,6 +1026,7 @@ function showArtworkPanel(artwork) {
   }
   
   panel.classList.add('open');
+  backdrop.classList.add('open');
 }
 
 function updateCarousel() {
