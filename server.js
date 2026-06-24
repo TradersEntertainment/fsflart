@@ -512,6 +512,7 @@ app.get('/api/visitors', authMiddleware, (req, res) => {
 // ─── Socket.IO — Multiplayer Gallery ────────────────
 const galleryNsp = io.of('/gallery');
 const players = new Map();
+const stolenPaintings = new Set();
 
 const AVATAR_COLORS = [
   '#c9a96e', '#6ec9a9', '#a96ec9', '#c96e6e',
@@ -527,6 +528,9 @@ galleryNsp.on('connection', (socket) => {
     color,
     position: { x: 0, y: 1.65, z: 15 },
     rotation: { x: 0, y: 0 },
+    health: 100,
+    score: 0,
+    isDead: false
   };
 
   // Send existing players to the new player
@@ -554,15 +558,55 @@ galleryNsp.on('connection', (socket) => {
   // Position update
   socket.on('move', (data) => {
     if (!players.has(socket.id)) return;
-    playerData.position = data.position;
-    playerData.rotation = data.rotation;
-    players.set(socket.id, playerData);
+    const p = players.get(socket.id);
+    if (p.isDead) return; // Dead players can't move
+    p.position = data.position;
+    p.rotation = data.rotation;
     socket.broadcast.emit('player-moved', {
       id: socket.id,
       position: data.position,
       rotation: data.rotation,
     });
   });
+
+  // Shoot event
+  socket.on('shoot', (targetId) => {
+    const target = players.get(targetId);
+    if (target && !target.isDead) {
+      target.health -= 25;
+      if (target.health <= 0) {
+        target.health = 0;
+        target.isDead = true;
+        target.score = 0; // Drop artworks
+        galleryNsp.emit('player-died', { id: targetId });
+        
+        // Auto respawn after 5 seconds
+        setTimeout(() => {
+          if (players.has(targetId)) {
+            const p = players.get(targetId);
+            p.health = 100;
+            p.isDead = false;
+            p.position = { x: (Math.random() - 0.5) * 10, y: 1.65, z: 10 + (Math.random() - 0.5) * 5 };
+            galleryNsp.emit('player-respawned', p);
+          }
+        }, 5000);
+      }
+      galleryNsp.emit('player-hit', { id: targetId, health: target.health });
+    }
+  });
+
+  // Steal painting event
+  socket.on('steal-painting', (artworkId) => {
+    const p = players.get(socket.id);
+    if (p && !p.isDead && !stolenPaintings.has(artworkId)) {
+      stolenPaintings.add(artworkId);
+      p.score += 1;
+      galleryNsp.emit('painting-stolen', { artworkId, playerId: socket.id, newScore: p.score });
+    }
+  });
+
+  // Send current stolen paintings to new player
+  socket.emit('stolen-paintings', Array.from(stolenPaintings));
 
   // Disconnect
   socket.on('disconnect', () => {

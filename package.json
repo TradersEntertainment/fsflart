@@ -1,7 +1,7 @@
 {
-  "name": "firca-izleri-sergi",
+  "name": "muze-soygunu",
   "version": "1.0.0",
-  "description": "Fuat Sezgin Fen Lisesi — Fırça İzleri Öğrenci Resim Sergisi",
+  "description": "Museum Heist Multiplayer FPS",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

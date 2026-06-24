@@ -181,12 +181,19 @@ async function init() {
 
   // Scene
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a1a1a);
-  const fogDensity = Math.max(0.008, 0.02 - artworks.length * 0.0003);
-  scene.fog = new THREE.FogExp2(0x1a1a1a, fogDensity);
+  scene.background = new THREE.Color(0x050505);
+  scene.fog = new THREE.FogExp2(0x050505, 0.035);
 
   // Camera
   camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
+  
+  // Flashlight
+  const flashlight = new THREE.SpotLight(0xffffff, 3.0, 50, Math.PI / 7, 0.5, 1.5);
+  flashlight.position.set(0, 0, 0);
+  flashlight.target.position.set(0, 0, -1);
+  camera.add(flashlight);
+  camera.add(flashlight.target);
+  scene.add(camera);
   
   const urlParams = new URLSearchParams(window.location.search);
   const targetExhibition = urlParams.get('exhibition');
@@ -253,11 +260,10 @@ function updateLoading(pct, text) {
 let spotlightCount = 0;
 
 function createLights() {
-  // Ambient — brighter for larger rooms
-  const ambientIntensity = Math.min(0.5, 0.25 + artworks.length * 0.008);
-  scene.add(new THREE.AmbientLight(0xfff5e6, ambientIntensity));
+  // Ambient — darker for heist
+  scene.add(new THREE.AmbientLight(0x101520, 0.02));
 
-  // Multiple ceiling lights spread across both rooms
+  // Multiple ceiling lights spread across both rooms (dim red/orange)
   const lightsX = Math.max(1, Math.ceil(ROOM.width / 16));
   const lightsZ = Math.max(1, Math.ceil(ROOM.depth / 16));
   
@@ -266,7 +272,7 @@ function createLights() {
       for (let iz = 0; iz < lightsZ; iz++) {
         const px = offsetX + (ix / Math.max(1, lightsX - 1) - 0.5) * (ROOM.width * 0.7);
         const pz = (iz / Math.max(1, lightsZ - 1) - 0.5) * (ROOM.depth * 0.7);
-        const light = new THREE.PointLight(0xfff0d6, 0.4, ROOM.depth);
+        const light = new THREE.PointLight(0xff5533, 0.05, ROOM.depth);
         light.position.set(lightsX === 1 ? offsetX : px, ROOM.height - 0.5, lightsZ === 1 ? 0 : pz);
         scene.add(light);
       }
@@ -274,28 +280,15 @@ function createLights() {
   });
 
   // Corridor light
-  const cLight = new THREE.PointLight(0xfff0d6, 0.6, 20);
+  const cLight = new THREE.PointLight(0xff5533, 0.1, 20);
   cLight.position.set(ROOM_OFFSET_X / 2, ROOM.height - 0.5, 0);
   scene.add(cLight);
 }
 
 function addPaintingSpotlight(x, y, z, targetX, targetZ) {
-  if (spotlightCount < MAX_SPOTLIGHTS) {
-    // Dramatic cone spotlight
-    const spot = new THREE.SpotLight(0xfff5e6, 2.5, 12, Math.PI / 6, 0.6, 1.5);
-    spot.position.set(x, y, z);
-    spot.target.position.set(targetX, EYE_HEIGHT, targetZ);
-    // Shadow disabled for performance since there are many lights
-    spot.castShadow = false; 
-    scene.add(spot);
-    scene.add(spot.target);
-    spotlightCount++;
-  } else {
-    // Cheaper point light for performance
-    const light = new THREE.PointLight(0xfff5e6, 1.5, 8);
+    const light = new THREE.PointLight(0xfff5e6, 0.05, 5); // Very dim
     light.position.set(x, y, z);
     scene.add(light);
-  }
 }
 
 // ─── Minecraft Glass Texture Generator ─────────────
@@ -792,14 +785,22 @@ function setupDesktopEvents() {
     startOverlay.classList.add('hidden');
     hud.style.display = '';
     crosshair.style.display = '';
+    const hc = document.getElementById('health-bar-container');
+    const sb = document.getElementById('scoreboard');
+    if (hc) hc.style.display = 'block';
+    if (sb) sb.style.display = 'block';
   });
 
   controls.addEventListener('unlock', () => {
-    if (!panel.classList.contains('open')) {
+    if (!panel.classList.contains('open') && (typeof isDead === 'undefined' || !isDead)) {
       startOverlay.classList.remove('hidden');
     }
     hud.style.display = 'none';
     crosshair.style.display = 'none';
+    const hc = document.getElementById('health-bar-container');
+    const sb = document.getElementById('scoreboard');
+    if (hc) hc.style.display = 'none';
+    if (sb) sb.style.display = 'none';
   });
 
   document.addEventListener('keydown', (e) => {
@@ -1228,14 +1229,15 @@ function animate() {
     if (!isMobile && crosshair) {
       raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
       const hits = raycaster.intersectObjects(paintingMeshes);
-      if (hits.length > 0 && hits[0].distance < 15) {
-        crosshair.style.borderColor = '#c9a96e';
+      const hint = document.getElementById('interaction-hint');
+      if (hits.length > 0 && hits[0].distance < 4) {
+        crosshair.style.borderColor = '#ef4444';
         crosshair.style.transform = 'translate(-50%, -50%) scale(1.5)';
-        crosshair.style.boxShadow = '0 0 8px rgba(201,169,110,0.6)';
+        if (hint) hint.style.display = 'block';
       } else {
         crosshair.style.borderColor = 'rgba(255,255,255,0.7)';
         crosshair.style.transform = 'translate(-50%, -50%) scale(1)';
-        crosshair.style.boxShadow = 'none';
+        if (hint) hint.style.display = 'none';
       }
     }
   }
@@ -1296,7 +1298,105 @@ function initMultiplayer() {
     removePlayer(id);
     updateOnlineCount();
   });
+
+  socket.on('player-hit', (data) => {
+    if (data.id === myId) {
+      document.getElementById('health-bar-fill').style.width = data.health + '%';
+      const overlay = document.getElementById('damage-overlay');
+      overlay.classList.add('active');
+      setTimeout(() => overlay.classList.remove('active'), 200);
+    }
+  });
+
+  socket.on('player-died', (data) => {
+    if (data.id === myId) {
+      isDead = true;
+      document.getElementById('respawn-screen').style.display = 'flex';
+      controls.unlock();
+      document.getElementById('score-val').textContent = '0';
+    } else {
+      const p = otherPlayers.get(data.id);
+      if (p) p.mesh.rotation.x = Math.PI / 2; // Fall over
+    }
+  });
+
+  socket.on('player-respawned', (data) => {
+    if (data.id === myId) {
+      isDead = false;
+      document.getElementById('respawn-screen').style.display = 'none';
+      document.getElementById('health-bar-fill').style.width = '100%';
+      camera.position.set(data.position.x, data.position.y, data.position.z);
+      controls.lock();
+    } else {
+      const p = otherPlayers.get(data.id);
+      if (p) {
+        p.mesh.rotation.x = 0; // Stand up
+        p.targetPos = data.position;
+      }
+    }
+  });
+
+  socket.on('painting-stolen', (data) => {
+    if (data.playerId === myId) {
+      document.getElementById('score-val').textContent = data.newScore;
+    }
+    const painting = paintingMeshes.find(m => m.userData.artworkId === data.artworkId);
+    if (painting && painting.parent) {
+      painting.parent.remove(painting);
+    }
+  });
+
+  socket.on('stolen-paintings', (ids) => {
+    ids.forEach(id => {
+      const painting = paintingMeshes.find(m => m.userData.artworkId === id);
+      if (painting && painting.parent) {
+        painting.parent.remove(painting);
+      }
+    });
+  });
 }
+
+let isDead = false;
+
+window.addEventListener('mousedown', (e) => {
+  if (!controls || !controls.isLocked || isDead) return;
+  if (e.button === 0) {
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    const playerMeshes = Array.from(otherPlayers.values()).map(p => p.mesh);
+    const hits = raycaster.intersectObjects(playerMeshes, true);
+    if (hits.length > 0) {
+      for (const [id, player] of otherPlayers.entries()) {
+        let hitObj = hits[0].object;
+        while(hitObj) {
+          if (hitObj === player.mesh) {
+            socket.emit('shoot', id);
+            break;
+          }
+          hitObj = hitObj.parent;
+        }
+      }
+    }
+    // Recoil
+    const recoil = 0.05;
+    camera.rotation.x += recoil;
+    setTimeout(() => camera.rotation.x -= recoil, 50);
+    
+    // Play gun sound (synthesized thud)
+    playFootstep();
+  }
+});
+
+window.addEventListener('keydown', (e) => {
+  if (!controls || !controls.isLocked || isDead) return;
+  if (e.key.toLowerCase() === 'e') {
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    const hits = raycaster.intersectObjects(paintingMeshes);
+    if (hits.length > 0 && hits[0].distance < 4) {
+      const artId = hits[0].object.userData.artworkId;
+      socket.emit('steal-painting', artId);
+    }
+  }
+});
 
 function getPlayerName() {
   const input = document.getElementById('player-name');
