@@ -181,19 +181,12 @@ async function init() {
 
   // Scene
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x050505);
-  scene.fog = new THREE.FogExp2(0x050505, 0.035);
+  scene.background = new THREE.Color(0x1a1a1a);
+  const fogDensity = 0.005; // Daha aydınlık bir ortam için sis azaltıldı
+  scene.fog = new THREE.FogExp2(0x1a1a1a, fogDensity);
 
   // Camera
   camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
-  
-  // Flashlight
-  const flashlight = new THREE.SpotLight(0xffffff, 3.0, 50, Math.PI / 7, 0.5, 1.5);
-  flashlight.position.set(0, 0, 0);
-  flashlight.target.position.set(0, 0, -1);
-  camera.add(flashlight);
-  camera.add(flashlight.target);
-  scene.add(camera);
   
   const urlParams = new URLSearchParams(window.location.search);
   const targetExhibition = urlParams.get('exhibition');
@@ -260,8 +253,9 @@ function updateLoading(pct, text) {
 let spotlightCount = 0;
 
 function createLights() {
-  // Ambient — darker for heist
-  scene.add(new THREE.AmbientLight(0x101520, 0.02));
+  // Ambient — daha aydınlık bir galeri için güçlendirildi
+  const ambientIntensity = 0.8;
+  scene.add(new THREE.AmbientLight(0xfff5e6, ambientIntensity));
 
   // Multiple ceiling lights spread across both rooms (dim red/orange)
   const lightsX = Math.max(1, Math.ceil(ROOM.width / 16));
@@ -272,7 +266,7 @@ function createLights() {
       for (let iz = 0; iz < lightsZ; iz++) {
         const px = offsetX + (ix / Math.max(1, lightsX - 1) - 0.5) * (ROOM.width * 0.7);
         const pz = (iz / Math.max(1, lightsZ - 1) - 0.5) * (ROOM.depth * 0.7);
-        const light = new THREE.PointLight(0xff5533, 0.05, ROOM.depth);
+        const light = new THREE.PointLight(0xfff0d6, 1.2, ROOM.depth); // Tavan ışıkları güçlendirildi (0.4 -> 1.2)
         light.position.set(lightsX === 1 ? offsetX : px, ROOM.height - 0.5, lightsZ === 1 ? 0 : pz);
         scene.add(light);
       }
@@ -280,15 +274,28 @@ function createLights() {
   });
 
   // Corridor light
-  const cLight = new THREE.PointLight(0xff5533, 0.1, 20);
+  const cLight = new THREE.PointLight(0xfff0d6, 0.6, 20);
   cLight.position.set(ROOM_OFFSET_X / 2, ROOM.height - 0.5, 0);
   scene.add(cLight);
 }
 
 function addPaintingSpotlight(x, y, z, targetX, targetZ) {
-    const light = new THREE.PointLight(0xfff5e6, 0.05, 5); // Very dim
+  if (spotlightCount < MAX_SPOTLIGHTS) {
+    // Dramatic cone spotlight
+    const spot = new THREE.SpotLight(0xfff5e6, 2.5, 12, Math.PI / 6, 0.6, 1.5);
+    spot.position.set(x, y, z);
+    spot.target.position.set(targetX, EYE_HEIGHT, targetZ);
+    // Shadow disabled for performance since there are many lights
+    spot.castShadow = false; 
+    scene.add(spot);
+    scene.add(spot.target);
+    spotlightCount++;
+  } else {
+    // Cheaper point light for performance
+    const light = new THREE.PointLight(0xfff5e6, 1.5, 8);
     light.position.set(x, y, z);
     scene.add(light);
+  }
 }
 
 // ─── Minecraft Glass Texture Generator ─────────────
